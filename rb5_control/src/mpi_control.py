@@ -1,10 +1,10 @@
 from megapi import MegaPi
 
 
-MFR = 2     # port for motor front right
-MBL = 3     # port for motor back left
-MBR = 10    # port for motor back right
-MFL = 11    # port for motor front left
+MFR = 3     # port for motor front right
+MBL = 2     # port for motor back left
+MBR = 11    # port for motor back right
+MFL = 10    # port for motor front left
 
 
 class MegaPiController:

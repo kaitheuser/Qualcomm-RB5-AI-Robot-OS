@@ -22,6 +22,7 @@ class KeyJoyNode:
 
             # publish joy
             self.pub_joy.publish(joy_msg)
+            if sum(joy_msg.axes) != 0: rospy.sleep(8.0)
     
         self.stop()
 
@@ -31,7 +32,7 @@ class KeyJoyNode:
         joy_msg.axes = [0.0 ,0.0 ,0.0 ,0.0 ,0.0 ,0.0 ,0.0 ,0.0]
         joy_msg.buttons = [0, 0, 0, 0, 0, 0, 0, 0]
         if key == 'w':
-            joy_msg.axes[1] = 1.0
+            joy_msg.axes[1] = 0.5
         elif key == 's':
             joy_msg.axes[1] = -1.0
         elif key == 'a':
