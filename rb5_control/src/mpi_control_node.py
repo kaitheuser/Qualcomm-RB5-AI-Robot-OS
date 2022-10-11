@@ -11,7 +11,7 @@ class MegaPiControllerNode:
         self.mpi_ctrl = MegaPiController(port='/dev/ttyUSB0', verbose=verbose)
         self.v_max_default_straight = 100
         self.v_max_default_slide = 100
-        self.v_max_default_rotate = 50
+        self.v_max_default_rotate = 100
         self.reset_v_max()
         self.verbose = verbose
         self.debug = debug
@@ -87,6 +87,7 @@ class MegaPiControllerNode:
 if __name__ == "__main__":
     mpi_ctrl_node = MegaPiControllerNode()
     rospy.init_node('megapi_controller')
-    rospy.Subscriber('/joy', Joy, mpi_ctrl_node.joy_callback, queue_size=1) 
+    # rospy.Subscriber('/joy', Joy, mpi_ctrl_node.joy_callback, queue_size=1) 
+    rospy.Subscriber('/auto', Joy, mpi_ctrl_node.joy_callback, queue_size=1) 
     
     rospy.spin()
