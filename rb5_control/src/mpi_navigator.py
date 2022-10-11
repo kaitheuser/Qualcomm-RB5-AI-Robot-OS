@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 import rospy
 from sensor_msgs.msg import Joy
-from mpi_control import MegaPiController
 import numpy as np
 
+
 class MegaNavigatorNode:
-    def __init__(self):
+    def __init__(self, init_x, init_y, init_theta):
 
         # Initialize the ROS node
         rospy.init_node("megapi_navigator")
@@ -13,168 +13,155 @@ class MegaNavigatorNode:
         rospy.loginfo("MBot Navigator Node Has Been Started.")
 
         # Define a publisher
-        nav_pub = rospy.Publisher("/joy", Joy, queue_size=10)
+        self.nav_pub = rospy.Publisher("/joy", Joy, queue_size=10)
 
-        # Load and Read waypoint text file with numpy
-        self.waypoints = np.loadtxt('/home/rosws/src/rb5_ros/waypoints/waypoints.txt', delimiter = ',')
         # Get current waypoint and heading
-        self.curr_WPx, self.curr_WPy, self.curr_Head = self.waypoints[0,:]
+        self.curr_WPx, self.curr_WPy, self.curr_Head = init_x, init_y, init_theta
 
         # Initialize joystick message object
         self.joy_msg = Joy()
         # Initialize joystick axis message and buttons
         self.joy_msg.axes = [0.0 ,0.0 ,0.0 ,0.0 ,0.0 ,0.0 ,0.0 ,0.0]
         self.joy_msg.buttons = [0, 0, 0, 0, 0, 0, 0, 0]
+        # Publish the joystick message.
+        self.nav_pub.publish(self.joy_msg)
+        rospy.sleep(0.5) # seconds
 
         # Parameters
-        self.drive_Vel = 0.1554  # m/s
+        self.fwd_VEL = 0.17 # m/s
+        self.rvs_VEL = 0.19 # m/s
+        self.ccw_VEL = 1.20 # rad/s
+        self.cw_VEL = 1.15  # rad/s
+        self.right_VEL = 0.58 # m/s
+        self.left_VEL = 0.52 # m/s
 
 
-
+    # Forward / Reverse Drive
     def drive(self, distance):
-        runtime = abs(distance) / self.drive_Vel
+
+        # Calculate the time required to run the input distance given the drive velocity
+        runtime = (abs(distance) / self.fwd_VEL) if distance > 0 else (abs(distance) / self.rvs_VEL)
+        # Set the forward/backward drive magnitude
         self.joy_msg.axes[1] = 0.5 if distance > 0 else -0.5
-        flag = True
-        while not rospy.is_shutdown() or flag:
-            rospy.sleep(runtime)
-            self.joy_msg.axes[1] = 0.0
-            flag = False
+        # Publish to the topic
+        self.nav_pub.publish(self.joy_msg)
+        # Run for the calculated amount of time
+        rospy.sleep(runtime)
+        # Stop the vehicle
+        self.joy_msg.axes[1] = 0.0
+        # Publish to the topic again
+        self.nav_pub.publish(self.joy_msg)
 
+    # CCW / CW Rotation
+    def rotate(self, theta):
 
+        # Calculate the time required to run the input distance given the drive velocity
+        runtime = (abs(theta) / self.ccw_VEL) if theta > 0 else (abs(theta) / self.cw_VEL)
+        # Set the ccw/cw angular velocity magnitude
+        self.joy_msg.axes[2] = 0.5 if theta > 0 else -0.5
+        # Publish to the topic
+        self.nav_pub.publish(self.joy_msg)
+        # Run for the calculated amount of time
+        rospy.sleep(runtime)
+        # Stop the vehicle
+        self.joy_msg.axes[2] = 0.0
+        # Publish to the topic again
+        self.nav_pub.publish(self.joy_msg)
 
+    # Right / Left Slide
+    def slide(self, distance):
 
-
-
-
-
-
+        # Calculate the time required to run the input distance given the drive velocity
+        runtime = (abs(distance) / self.right_VEL) if distance > 0 else (abs(distance) / self.left_VEL)
+        # Set the forward/backward drive magnitude
+        self.joy_msg.axes[0] = -1.8 if distance > 0 else 1.8
+        # Publish to the topic
+        self.nav_pub.publish(self.joy_msg)
+        # Run for the calculated amount of time
+        rospy.sleep(runtime)
+        # Stop the vehicle
+        self.joy_msg.axes[0] = 0.0
+        # Publish to the topic again
+        self.nav_pub.publish(self.joy_msg)
 
 
 if __name__ == '__main__':
 
-    #mpi_Nav = MegaNavigatorNode()
-    #mpi_Nav.drive(1.0)
+    # Load and Read waypoint text file with numpy
+    waypoints = np.loadtxt('/home/rosws/src/rb5_ros/waypoints/waypoints.txt', delimiter = ',')
+    waypoints = waypoints.tolist()
+    # Get current coordinate and heading
+    init_x, init_y, init_theta = waypoints.pop(0)
 
-    #while not rospy.is_shutdown():
-    from copy import deepcopy
-    from std_msgs.msg import Int8
-    from math import atan2
+    # Create an object
+    mpi_Nav = MegaNavigatorNode(init_x, init_y, init_theta)
 
-    # processing waypoints
-    with open('/home/rosws/src/rb5_ros/waypoints/waypoints.txt') as f:
-        waypoints_file = f.readlines()
+    # While waypoints are not empty
+    while waypoints:
 
-    waypoints_string_ls = [ele[: -1].split(',') for ele in waypoints_file]
-    waypoints_string_ls[-1][-1] = '0'
-    waypoints_ls = []
+        # Get Next Waypoint and Heading
+        nxt_WPx, nxt_WPy, nxt_head = waypoints.pop(0)
 
-    for string_ls in waypoints_string_ls:
-        waypoints_ls.append([float(ele) for ele in string_ls])
-    
-    waypoints_ls = waypoints_ls[: 3]
+        # Print status
+        rospy.loginfo("Next Waypoint ( %s m, %s m )", nxt_WPx, nxt_WPy)
 
-    speed_ls = [0.35, 0.185, 1.4, 1.3]
-    x_speed, y_speed, theta_speed_ccw, theta_speed_cw = speed_ls
+        # Calculate the heading of the next and current waypoints
+        wps_vec = [nxt_WPx - mpi_Nav.curr_WPx, nxt_WPy - mpi_Nav.curr_WPy]
+        wps_head = np.math.atan2(wps_vec[1], wps_vec[0])
+        wps_head = np.floor(wps_head * 100) / 100 if wps_head > 0 else np.ceil(wps_head * 100) / 100
 
-    speed_cmd = [1.2, 0.5, 0.5]
-    x_cmd, y_cmd, theta_cmd = speed_cmd
+        # Calculate the distance between next and current waypoints.
+        dist = np.linalg.norm([nxt_WPx-mpi_Nav.curr_WPx, nxt_WPy-mpi_Nav.curr_WPy])
 
-    rospy.init_node("auto_driving")
-    pub_auto = rospy.Publisher("/auto", Joy, queue_size = 1)
-    current_state = [0, 0, 1.57]
+        # Calculate the angle between two heading vectors
+        delta_theta = wps_head - mpi_Nav.curr_Head
 
-    joy_msg = Joy()
-    joy_msg.axes = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    joy_msg.buttons = [0, 0, 0, 0, 0, 0, 0, 0]
-
-    pub_auto.publish(joy_msg)
-    rospy.sleep(1.0)
-
-    def move_y(delta_y):
-        delta_time = abs(delta_y) / y_speed
-        curr_msg = deepcopy(joy_msg)
-        direction = 1 if delta_y > 0 else -1
-        curr_msg.axes[1] = direction * y_cmd
-        pub_auto.publish(curr_msg)
-        print (delta_time)
-        rospy.sleep(delta_time)
-
-    def move_x(delta_x):
-        rospy.loginfo("in move x")
-        delta_time = abs(delta_x) / x_speed
-        curr_msg = deepcopy(joy_msg)
-        direction = 1 if delta_x > 0 else -1
-        curr_msg.axes[0] = -direction * x_cmd
-        rospy.loginfo(delta_time)
-        pub_auto.publish(curr_msg)
-        print (delta_time)
-        rospy.sleep(delta_time)
-
-    def move_theta(delta_theta):
-        curr_msg = deepcopy(joy_msg)
-        if delta_theta > 0:
-            delta_time = abs(delta_theta) / theta_speed_ccw
-            curr_msg.axes[2] = theta_cmd
+        # If the angle between the waypoints vector and the heading is equal or pi.
+        if ((delta_theta == 0.0) or 
+            (abs(delta_theta) == 3.14)):
+            # Go forward if the headings are the same. Or else, reverse.
+            if mpi_Nav.curr_Head == wps_head:
+                rospy.loginfo("Moving Forward: %s m", dist)
+                mpi_Nav.drive(dist)
+            else:
+                rospy.loginfo("Moving Backward: - %s m", dist)
+                mpi_Nav.drive(-dist)
+        elif ((delta_theta == 1.57) or 
+              (delta_theta == -1.57)):
+            # Slide left if the delta_theta is positive 90 degrees. Or else, slide right.
+            if delta_theta == 1.57:
+                rospy.loginfo("Slide Left: - %s m", dist)
+                mpi_Nav.slide(-dist)
+            else:
+                rospy.loginfo("Slide Right: %s m", dist)
+                mpi_Nav.slide(dist)
         else:
-            delta_time = abs(delta_theta) / theta_speed_cw
-            curr_msg.axes[2] = -theta_cmd
-        # direction = 1 if delta_theta > 0 else -1
-        # curr_msg.axes[2] = direction * theta_cmd
-        pub_auto.publish(curr_msg)
-        print (delta_time)
-        rospy.sleep(delta_time)
+            # Print Status
+            rospy.loginfo("Rotating CCW: %s rad", delta_theta) if delta_theta > 0 else rospy.loginfo("Rotating CW: - %s rad", delta_theta)
+            # Face the next waypoint before moving forward
+            mpi_Nav.rotate(delta_theta)
+            # Update the MBot heading
+            mpi_Nav.curr_Head = wps_head
+            rospy.loginfo("Then, Moving Forward: %s m", dist)
+            # Move forward
+            mpi_Nav.drive(dist)
 
-    while waypoints_ls:
+        # Calculate the angle between the updated MBot heading and the next waypoint heading
+        delta_theta2 = nxt_head - mpi_Nav.curr_Head
 
-        # data = rospy.wait_for_message("/auto_stop", Int8)
-        # if data.data != 1: break
+        if delta_theta2 != 0.0:
+            # Print Status
+            rospy.loginfo("Rotating CCW: %s rad", delta_theta2) if delta_theta2 > 0 else rospy.loginfo("Rotating CW: - %s rad", delta_theta2)
 
-        w_x, w_y, w_theta = waypoints_ls.pop(0)
+            # Correct MBot heading to the next waypoint heading
+            mpi_Nav.rotate(delta_theta2)
 
-        print ([w_x, w_y, w_theta])
-        w_x = w_x / 2
-        w_y = w_y / 2
-        if w_theta < 0:
-            w_theta = -w_theta + 3.14
-        c_x, c_y, c_theta = current_state
-        delta_x, delta_y, delta_theta = w_x - c_x, w_y - c_y, w_theta - c_theta
+        # Update current position and heading
+        mpi_Nav.curr_WPx, mpi_Nav.curr_WPy, mpi_Nav.curr_Head = nxt_WPx, nxt_WPy, nxt_head
 
-        print "delta_x " + str(delta_x) + " delta_y " + str(delta_y) + " delta_theta " + str(delta_theta)
-        
-        if delta_theta == delta_y == delta_x == 0:
-            rospy.loginfo("passed")
-            # current_state = [w_x, w_y, w_theta]
-        # slide
-        if delta_theta == delta_y == 0 and delta_x != 0:
-            rospy.loginfo("slide")
-            move_x(delta_x)
-            # current_state = [w_x, w_y, w_theta]
-        # move in single y direction:
-        elif delta_x == 0:
-            rospy.loginfo("head in y")
-            move_y(delta_y)
-        else:
-            moving_direction = atan2(delta_y, delta_x)
-            print ("moving direction is ", moving_direction)
-            if moving_direction < 0: moving_direction += 2 * 3.14
-            delta_moving_direction = moving_direction - c_theta
-            rospy.loginfo("head to moving direction")
-            move_theta(delta_moving_direction)
-            delta_theta = w_theta - delta_moving_direction
-            moving_distance = np.sqrt(delta_x ** 2 + delta_y ** 2)
-            rospy.loginfo("head in y in moving direction")
-            move_y(moving_distance)
-        
-        rospy.loginfo("adjust direction")
-        if delta_theta != 0: move_theta(delta_theta)
-        current_state = [w_x, w_y, w_theta]
+        # Print Status
+        rospy.loginfo("Waypoint Reached. Moving to Next Waypoint")
+        rospy.loginfo("=========================================")
 
-
-        pub_auto.publish(joy_msg)
-        rospy.sleep(1.0)
-
-    pub_auto.publish(joy_msg)
-        
-
-            
-
+    # Print Status
+    rospy.loginfo("***Mission Accomplished***")
