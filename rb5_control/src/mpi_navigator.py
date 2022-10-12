@@ -101,6 +101,8 @@ if __name__ == '__main__':
 
         # Get Next Waypoint and Heading
         nxt_WPx, nxt_WPy, nxt_head = waypoints.pop(0)
+        # Scale the coordinates by 50%
+        nxt_WPx, nxt_WPy = nxt_WPx * 0.5, nxt_WPy * 0.5
 
         # Print status
         rospy.loginfo("Next Waypoint ( %s m, %s m )", nxt_WPx, nxt_WPy)
@@ -126,15 +128,15 @@ if __name__ == '__main__':
             else:
                 rospy.loginfo("Moving Backward: - %s m", dist)
                 mpi_Nav.drive(-dist)
-        elif ((delta_theta == 1.57) or 
-              (delta_theta == -1.57)):
-            # Slide left if the delta_theta is positive 90 degrees. Or else, slide right.
-            if delta_theta == 1.57:
-                rospy.loginfo("Slide Left: - %s m", dist)
-                mpi_Nav.slide(-dist)
-            else:
-                rospy.loginfo("Slide Right: %s m", dist)
-                mpi_Nav.slide(dist)
+        # elif ((delta_theta == 1.57) or 
+        #       (delta_theta == -1.57)):
+        #     # Slide left if the delta_theta is positive 90 degrees. Or else, slide right.
+        #     if delta_theta == 1.57:
+        #         rospy.loginfo("Slide Left: - %s m", dist)
+        #         mpi_Nav.slide(-dist)
+        #     else:
+        #         rospy.loginfo("Slide Right: %s m", dist)
+        #         mpi_Nav.slide(dist)
         else:
             # Print Status
             rospy.loginfo("Rotating CCW: %s rad", delta_theta) if delta_theta > 0 else rospy.loginfo("Rotating CW: - %s rad", delta_theta)
