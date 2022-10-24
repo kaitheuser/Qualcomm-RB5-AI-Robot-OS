@@ -7,7 +7,7 @@ import numpy as np
 from sensor_msgs.msg import Joy
 # from pid_controller import PIDcontroller
 from single_pid_controller import SinglePIDController
-from quat_to_rad import quat_to_rad
+from tf.transformations import euler_from_quaternion
 
 fwd_vel = 0.17
 right_vel = 0.58
@@ -26,7 +26,7 @@ def movement_cb(data):
     curr_pos = data.poses[0].position
     curr_quat = data.poses[0].orientation
     curr_x, curr_z = curr_pos.x, curr_pos.z
-    curr_r = quat_to_rad(curr_quat)
+    _, curr_r, _ = euler_from_quaternion([curr_quat.w, curr_quat.x, curr_quat.y, curr_quat.z])
     # current_state = np.array([curr_z, curr_x, curr_angle])
 
     pid_x = SinglePIDController(0.8, 1, 1, 1.4, 0.5)

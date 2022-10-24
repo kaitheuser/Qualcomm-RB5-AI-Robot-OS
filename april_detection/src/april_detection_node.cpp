@@ -20,16 +20,16 @@ AprilDetection det;
 
 // TODO: Replace these parameters using your calibration results
 double distortion_coeff[] = 
-	{0.008549, -0.016273, -0.002954, -0.003708, 0.000000};
-double intrinsics[] = {683.558755,    0.     ,  961.607445,
-                       0.     ,  680.809134,  547.701668,
+	{0.026463, -0.017262, -0.004043, -0.001005, 0.000000};
+double intrinsics[] = {698.312354,    0.     ,  968.764373,
+                       0.     ,  695.656639,  540.441581,
                        0.     ,    0.     ,    1.};
 
 const cv::Mat d(cv::Size(1, 5), CV_64FC1, distortion_coeff);
 const cv::Mat K(cv::Size(3, 3), CV_64FC1, intrinsics);
 // TODO: Set tagSize for pose estimation, assuming same tag size.
 // details from: https://github.com/AprilRobotics/apriltag/wiki/AprilTag-User-Guide#pose-estimation
-const double tagSize = 0.162; // in meters
+const double tagSize = 0.021; // in meters
 
 cv::Mat rectify(const cv::Mat image){
   cv::Mat image_rect = image.clone();
