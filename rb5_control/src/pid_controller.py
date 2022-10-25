@@ -131,5 +131,7 @@ if __name__ == "__main__":
             time.sleep(0.05)
             # update the current state
             current_state += update_value
+            
+        
     # stop the car and exit
     pub_twist.publish(genTwistMsg(np.array([0.0,0.0,0.0])))
