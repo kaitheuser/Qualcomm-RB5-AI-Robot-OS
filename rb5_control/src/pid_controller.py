@@ -92,22 +92,13 @@ def coord(twist, current_state):
 
 if __name__ == "__main__":
     import time
-    rospy.init_node("hw1")
+    rospy.init_node("open_loop_control")
     pub_twist = rospy.Publisher("/twist", Twist, queue_size=1)
 
-    # waypoint = np.array([[0.0,0.0,0.0], 
-    #                      [-0.5,0.0,0.0],
-    #                      [-0.5,0.5,np.pi/2.0],
-    #                      [-1.0,0.5,0.0],
-    #                      [-0.5,0.5,-np.pi/2.0],
-    #                      [-0.5,0.5,-np.pi/4.0],
-    #                      [0.0,0.0,0.0]])
     waypoint = np.array([[0.0,0.0,0.0], 
-                         [-0.5,0.0,0.0],
-                         [-0.5,0.5,np.pi/2.0],
-                         [-1.0,0.5,0.0],
-                         [-1.0,1.0,-np.pi/2.0]
-                         ])
+                         [0.5,0.0,0.0],
+                         [0.5,1.0,np.pi],
+                         [0.0,0.0,0.0]])
 
     # init pid controller
     pid = PIDcontroller(0.02,0.005,0.005)

@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-from ast import Global
-import sys
 import rospy
 from geometry_msgs.msg import Twist, PoseArray
 import numpy as np
