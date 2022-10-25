@@ -49,11 +49,11 @@ def visualControl_callback(aprilTagPose):
     
     if openLoop_Status == True and closeLoop_Status == False:
         if len(aprilTagPose.detections) == 0:
-            rospy.loginfo("Searching for April Tag...")
+            rospy.loginfo("Searching for April Tag..." + str(aprilTagPose.header.seq))
             set_twist = np.array([0.0, 0.0, 0.04])
             msg_twist = genTwistMsg(set_twist)
             pub_Twist.publish(msg_twist)
-            rospy.sleep(0.5)
+            #rospy.sleep(0.05)
         else:
         # If april tag is detected
         # if len(aprilTagPose.detections) != 0:
