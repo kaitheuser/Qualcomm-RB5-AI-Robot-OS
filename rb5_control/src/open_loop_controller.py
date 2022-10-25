@@ -21,6 +21,7 @@ class OpenLoopController(GeneralController):
     
 
     def move_cb(self, data):
+        print ('in open loop callback')
         self._pid.setTarget(self._cmd_state)
         update_value = self._pid.update(self._current_state)
         twist_msg = self.genTwistMsg(
@@ -29,9 +30,11 @@ class OpenLoopController(GeneralController):
                 current_state = self._current_state
                 )
         )
-        self._pub.publish(twist_msg)
-        rospy.sleep(0.05)
+        # self._pub.publish(twist_msg)
         self._current_state += update_value
+
+        # print (self._current_state)
+        # print (self._cmd_state)
 
         if(np.linalg.norm(self._pid.getError(self._current_state, self._cmd_state)) > self.threshold): 
             update_value = self._pid.update(self._current_state)
@@ -47,4 +50,4 @@ class OpenLoopController(GeneralController):
         else:
             rospy.loginfo('Open Loop Reached')
             self.reached = True
-            self.shutdown_controller(0.05)
+            # self.shutdown_controller(0.05)

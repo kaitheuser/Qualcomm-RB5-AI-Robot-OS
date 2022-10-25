@@ -10,7 +10,7 @@ class GeneralController:
         self._current_state = current_state
         self._cmd_state = cmd_state
         self.threshold = threshold
-        self._pid = PIDcontroller(0.02, 0.005, 0.005)
+        self._pid = PIDcontroller(0.02, 0.003, 0.006)
         self._pub = rospy.Publisher("/twist", Twist, queue_size=1)
         self.reached = False
     
