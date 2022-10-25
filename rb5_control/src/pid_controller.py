@@ -95,13 +95,15 @@ if __name__ == "__main__":
     rospy.init_node("open_loop_control")
     pub_twist = rospy.Publisher("/twist", Twist, queue_size=1)
 
+    # waypoint = np.array([[0.0,0.0,0.0], 
+    #                      [0.5,0.0,0.0],
+    #                      [0.5,1.0,np.pi],
+    #                      [0.0,0.0,0.0]])
     waypoint = np.array([[0.0,0.0,0.0], 
-                         [0.5,0.0,0.0],
-                         [0.5,1.0,np.pi],
-                         [0.0,0.0,0.0]])
+                         [1.0,0.0,0.0]])
 
     # init pid controller
-    pid = PIDcontroller(0.02,0.005,0.005)
+    pid = PIDcontroller(0.2,0.005,0.005)
 
     # init current state
     current_state = np.array([0.0,0.0,0.0])

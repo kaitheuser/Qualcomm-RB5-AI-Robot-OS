@@ -31,11 +31,6 @@ class SinglePIDController:
         result = self.target - currentState
         return (result + np.pi) % (2 * np.pi) - np.pi if self.angle else result
 
-    # def setMaximumUpdate(self, mv):
-    #     """
-    #     set maximum velocity for stability.
-    #     """
-    #     self.maximumValue = mv
 
     def update(self, currentState):
         """
