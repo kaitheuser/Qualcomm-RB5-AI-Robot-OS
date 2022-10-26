@@ -11,8 +11,8 @@ import csv
 waypoints = np.array(
     [
         [0.5, 0.0, 0.0],
-        [0.5, 1.1, np.pi * 13 / 16],
-        [-0.2, 0.2, np.pi * 2 / 16],
+        [0.5, 1.0, np.pi],
+        [0.0, 0.0, 0.0],
     ],
 )
 
@@ -111,7 +111,7 @@ class AutoController:
                     curr_quat.z,
                 ]
             )
-            curr_state = np.array([-curr_z, curr_x / 5 * 3, -curr_r])
+            curr_state = np.array([-curr_z, curr_x, -curr_r])
             
             if self.pid.target[0] in [-0.5, -1.0]:
                 self.current_state = np.array([1.0 - curr_z, curr_x, -curr_r])
