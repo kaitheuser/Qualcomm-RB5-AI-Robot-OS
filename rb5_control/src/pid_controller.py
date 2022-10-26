@@ -15,7 +15,7 @@ class PIDcontroller:
         self.I = np.array([0.0,0.0,0.0])
         self.lastError = np.array([0.0,0.0,0.0])
         self.timestep = 0.1
-        self.maximumValue = 0.05
+        self.maximumValue = 0.04
 
     def setTarget(self, targetx, targety, targetw):
         """
