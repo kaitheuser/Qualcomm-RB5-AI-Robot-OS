@@ -1,185 +1,169 @@
 #!/usr/bin/env python
 import rospy
-import numpy as np
 import time
-from tf.transformations import euler_from_quaternion
-## Controller Libraries
-from pid_controller import PIDcontroller, genTwistMsg, coord
-from single_pid_controller import SinglePIDController
-from mpi_navigator import MegaNavigatorNode
-## Messages Libraries
-from sensor_msgs.msg import Joy
-from april_detection.msg import AprilTagDetectionArray
+import csv
+import numpy as np
+from pid_controller import PIDcontroller
 from geometry_msgs.msg import Twist, PoseArray
+from tf.transformations import euler_from_quaternion
 
-# Define global variables:
-openLoop_Status = False                         # Open Loop Completion Status
-closeLoop_Status = False                        # Closed Loop Completion Status
-wp_apt_idx = 0                                  # Waypoint index for Apriltag
-waypoints_apriltag = np.array([[0.59,0.0,0.0],   # Each Waypoint based on its nearest
-                              [0.50,0.0,0.0],   # AprilTag reference frame
-                              [1.10,0.0,0.0]])
+# Set Target Waypoints
+waypoints = np.array(
+    [
+        [0.5, 0.0, 0.0],
+        [0.5, 1.0, np.pi],
+        [0.0, 0.0, 0.0],
+    ],
+)
 
-# Define global functions for the callbacks
-def gen_cmd_msg(cmd_vals):
-    """
-    Generate Joy Command
-    """
-    joy_cmd = Joy()
-    joy_cmd.axes = [0.0 ,0.0 ,0.0 ,0.0 ,0.0 ,0.0 ,0.0 ,0.0]
-    joy_cmd.buttons = [0, 0, 0, 0, 0, 0, 0, 0]
-    drive_cmd, slide_cmd, rotate_cmd = cmd_vals
-    joy_cmd.axes[1] = -drive_cmd                # +ve forward
-    joy_cmd.axes[0] = slide_cmd                 # +ve left
-    joy_cmd.axes[2] = -rotate_cmd               # +ve ccw
-    return joy_cmd
+# Waypoints wrt april tag reference frame
+april_tag_refs = np.array(
+    [
+        [-0.5, 0, 0],
+        [-0.8, 0, 0],
+        [-1.0, 0, 0],
+    ]
+)
 
-def visualControl_callback(aprilTagPose):
-    """
-    Visual Closed Loop Control to realign robot pose.
-    """
-    global openLoop_Status
-    global closeLoop_Status
-    global waypoints_apriltag
-    global wp_apt_idx
+# Write CSV file
+fh = open('path.csv', 'w')
+writer = csv.writer(fh)
 
-    if wp_apt_idx == len(waypoints_apriltag):
-        # Make sure does execute the visual control after completed
-        openLoop_Status = False
+
+class AutoController:
+    """
+    PID Controller for both closed loop and opened loop
+    """
+    def __init__(self, pid_constrants):
+        kp, ki, kd = pid_constrants
+        self.open_reached = True
+        self.closed_reached = False
+        self.index = 0
+        self.pid = PIDcontroller(kp, ki, kd)
+        self.pub = rospy.Publisher('/twist', Twist, queue_size = 1)
+        self.t0 = time.time()
+        self.time_counter = 0.0
     
-    if openLoop_Status == True and closeLoop_Status == False:
-        if len(aprilTagPose.detections) == 0:
-            rospy.loginfo("Searching for April Tag..." + str(aprilTagPose.header.seq))
-            set_twist = np.array([0.0, 0.0, 0.04])
-            msg_twist = genTwistMsg(set_twist)
-            pub_Twist.publish(msg_twist)
-            #rospy.sleep(0.05)
+    def set_current_state(self, current_state):
+        self.current_state = current_state
+    
+    def get_current_state(self):
+        return self.current_state
+
+    def set_target_state(self):
+        if self.index >= 3: pass
+        if self.closed_reached:
+            self.pid.setTarget(waypoints[self.index])
         else:
-        # If april tag is detected
-        # if len(aprilTagPose.detections) != 0:
+            self.pid.setTarget(april_tag_refs[self.index])
+    
+    def genTwistMsg(self, desired_twist):
+        """
+        Convert the twist to twist msg.
+        """
+        twist_msg = Twist()
+        twist_msg.linear.x = desired_twist[0] 
+        twist_msg.linear.y = desired_twist[1] 
+        twist_msg.linear.z = 0
+        twist_msg.angular.x = 0
+        twist_msg.angular.y = 0
+        twist_msg.angular.z = desired_twist[2]
+        return twist_msg
+    
+    def coord(self, twist, current_state):
+        J = np.array([[np.cos(current_state[2]), np.sin(current_state[2]), 0.0],
+                    [-np.sin(current_state[2]), np.cos(current_state[2]), 0.0],
+                    [0.0,0.0,1.0]])
+        return np.dot(J, twist)
+        
+    def move_cb(self, data):
+        """
+        Visual Control and Open Loop Control Systems Callback Function
+        """
+        # Record telemetry
+        t1 = time.time()
+        if t1 - self.t0 >= 0.2:
+            self.time_counter += t1 - self.t0
+            writer.writerow([self.time_counter, float(self.current_state[0]), float(self.current_state[1])])
+            self.t0 = t1
 
-            # Get April Tage Pose
-            curr_Pose = aprilTagPose.detections[0].pose.position
-            curr_Quat = aprilTagPose.detections[0].pose.orientation
-
-            curr_PosZ, curr_PosX = curr_Pose.z, curr_Pose.x
-            _, curr_Agl, _ = euler_from_quaternion([curr_Quat.w,
-                                                    curr_Quat.x,
-                                                    curr_Quat.y,
-                                                    curr_Quat.z])
-            
-            # This is actually x-axis map frame
-            pid_z = SinglePIDController(1.0, 5.0, 1.0, 1.0, 0.5)
-            pid_z.setTarget(waypoints_apriltag[wp_apt_idx][0])
-            error_z = pid_z.getError(curr_PosZ)
-            # This is actually y-axis map frame
-            pid_x = SinglePIDController(1.0, 1.0, 1.0, 1.0, 0.5)
-            pid_x.setTarget(waypoints_apriltag[wp_apt_idx][1])
-            error_x = pid_x.getError(curr_PosX)
-            # Orientation
-            pid_r = SinglePIDController(0.1, 0.5, 0.5, 0.5, 0.4, True)
-            pid_r.setTarget(waypoints_apriltag[wp_apt_idx][2])
-            error_r = pid_r.getError(curr_Agl)
-
-            # Check waypoint reached
-            if np.abs(error_x) < 0.08 and np.abs(error_z) < 0.08 and np.abs(error_r) < 0.25:
-                pub_Joy.publish(gen_cmd_msg([0.0, 0.0, 0.0]))
-                rospy.sleep(0.05)
-                rospy.loginfo("Waypoint Reached and Alignment Complete")
-                closeLoop_Status = True
-                wp_apt_idx += 1
-            # Check heading first
-            elif np.abs(error_r) >= 0.25:         # About 15 Deg.
-                update_value_r = pid_r.update(error_r)
-                joy_cmd = gen_cmd_msg([0, 0, update_value_r])
-                rospy.loginfo("Adjusting Heading")
-                pub_Joy.publish(joy_cmd)
-                rospy.sleep(0.05)
+        # Aptil tag pose
+        poses_array = data.poses
+        self.set_target_state()
+        # Execute Open Loop Controller either after the robot pose was aligned or no april tag is detected
+        if len(poses_array) == 0 or self.closed_reached:
+            rospy.loginfo("IN OPEN LOOP")
+            print (self.get_current_state())
+            if(np.linalg.norm(self.pid.getError(self.get_current_state(), self.pid.target)) > 0.10): 
+                update_value = self.pid.update(self.get_current_state())
+                twist_msg = self.genTwistMsg(
+                    self.coord(
+                        twist = update_value, 
+                        current_state = self.get_current_state(),
+                    )
+                )
+                self.pub.publish(twist_msg)
+                rospy.sleep(0.067)
+                self.set_current_state(self.get_current_state() + update_value)
             else:
-                rospy.loginfo("Current error is: ")
-                print (error_z, error_x, error_r)
-                update_value_z = pid_z.update(curr_PosZ)
-                update_value_x = pid_x.update(curr_PosX)
-                update_value_r = pid_r.update(curr_Agl)
-                joy_cmd = gen_cmd_msg([update_value_z, update_value_x, 0]) # debug
-                pub_Joy.publish(joy_cmd)
-                rospy.sleep(0.05)
+                rospy.loginfo("OPEN LOOP REACHED")
+                self.open_reached = True
+                self.closed_reached = False     
+        # Run closed loop when an april tag is detected 
+        else:
+            rospy.loginfo('IN CLOSED LOOP ' + str(data.header.seq))
+            # TODO: seperate this part into a single function
+            curr_pose = poses_array[0].position
+            curr_quat = poses_array[0].orientation
+            curr_x, curr_z = curr_pose.x, curr_pose.z
+            _, curr_r, _ = euler_from_quaternion(
+                [
+                    curr_quat.w,
+                    curr_quat.x,
+                    curr_quat.y,
+                    curr_quat.z,
+                ]
+            )
+            curr_state = np.array([-curr_z, curr_x, -curr_r])
+            
+            if self.pid.target[0] in [-0.5, -1.0]:
+                self.current_state = np.array([1.0 - curr_z, curr_x, -curr_r])
+            elif self.pid.target[0] == -0.8:
+                self.current_state = np.array([-0.3 - curr_z, curr_x, -curr_r])
+            abs_error = np.abs(self.pid.getError(curr_state, self.pid.target))
+            
+            if abs_error[0] > 0.05 or abs_error[1] > 0.05 or abs_error[2] > 0.18:
+                update_value = self.pid.update(curr_state)
+                twist_msg = self.genTwistMsg(
+                    self.coord(
+                        twist = update_value, 
+                        current_state = curr_state,
+                    )
+                )
+                self.pub.publish(twist_msg)
+            else:
+                rospy.loginfo("CLOSED LOOP REACHED")
+                if not self.closed_reached: 
+                    self.closed_reached = True
+                    if self.index < waypoints.shape[0]:
+                        self.set_current_state(waypoints[self.index])
+                        self.index += 1
+                else:
+                    self.pub.publish(self.genTwistMsg(np.array([0.0, 0.0, 0.0])))
 
+
+# Initialize controller
+# auto_controller = AutoController([0.04, 0.02, 0.005])
+auto_controller = AutoController([0.0457, 0.0026, 0.0026])
+auto_controller.set_current_state(np.array([0.0, 0.0, 0.0]))
 
 if __name__ == "__main__":
 
-    # Initialize Node
-    rospy.init_node("vision_control")
+    rospy.init_node('visual_control')
 
-    # Publishers
-    pub_Twist = rospy.Publisher("/twist", Twist, queue_size = 1)
-    pub_Joy = rospy.Publisher('/joy', Joy, queue_size = 1)
-    # Subscriber
-    sub_aprilTagPose = rospy.Subscriber('/apriltag_detection_array', AprilTagDetectionArray, callback=visualControl_callback)
+    rospy.Subscriber('/april_poses', PoseArray, auto_controller.move_cb, queue_size = 1)
 
-    # Set target waypoints (x, y, orientation)
-    waypoints = np.array([[0.0,0.0,0.0], 
-                         [0.5,0.0,0.0],
-                         [0.5,1.0,np.pi],
-                         [0.0,0.0,0.0]])
-
-    # Initialize PID Controller
-    pid = PIDcontroller(0.02,0.01,0.01)
-
-    # Initialize the current state
-    current_state = waypoints[0,:]
-
-    # Loop through waypoints
-    for idx, wp in enumerate(waypoints):
-
-        # Skip the first waypoint (assume it is properly aligned)
-        if idx == 0: continue
-
-        # Show next waypoint log
-        rospy.loginfo("Next Waypoint ( %s m, %s m, %s rad )", wp[0], wp[1], wp[2])
-
-        # Set Next Waypoint
-        pid.setTarget(wp)
-
-        # Calculate the current twist
-        update_value = pid.update(current_state)
-
-        # Publish the twist
-        pub_Twist.publish(genTwistMsg(coord(update_value, current_state)))
-        time.sleep(0.05)
-
-        # Update the current state
-        current_state += update_value
-
-        # Open loop control while moving from one way point to another waypoint
-        while(np.linalg.norm(pid.getError(current_state, wp)) > 0.05): # check the error between current state and current way point
-            
-            # Calculate the current twist
-            update_value = pid.update(current_state)
-
-            # Publish the twist
-            pub_Twist.publish(genTwistMsg(coord(update_value, current_state)))
-            time.sleep(0.05)
-
-            # Update the current state
-            current_state += update_value
-
-        # Mark open loop control complete
-        openLoop_Status = True
-
-        # Close loop control to realign itself before moving to the next waypoint
-        # After open loop control, april tag is assume to be within view of sight of the robot.
-        while (openLoop_Status==True and closeLoop_Status==False):
-            # Execute in callback function
-            pass
-
-        # Reset loop status
-        closeLoop_Status = False
-        openLoop_Status = False
-
-    # Stop the car and exit
-    pub_Twist.publish(genTwistMsg(np.array([0.0,0.0,0.0])))
-    openLoop_Status =False
+    rospy.spin()
             
 
 
