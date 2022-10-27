@@ -1,7 +1,15 @@
 #!/usr/bin/env python
+import sys
+import roslib
 import rospy
+import geometry_msgs.msg
 from geometry_msgs.msg import Twist
 import numpy as np
+import math
+import tf
+import tf2_ros
+from tf.transformations import quaternion_matrix
+import yaml
 
 """
 The class of the pid controller.
@@ -15,7 +23,7 @@ class PIDcontroller:
         self.I = np.array([0.0,0.0,0.0])
         self.lastError = np.array([0.0,0.0,0.0])
         self.timestep = 0.1
-        self.maximumValue = 0.04
+        self.maximumValue = 0.03
 
     def setTarget(self, targetx, targety, targetw):
         """
@@ -69,6 +77,38 @@ class PIDcontroller:
 
         return result
 
+def getCurrentPos(l):
+    """
+    Given the tf listener, we consider the camera's z-axis is the header of the car
+    """
+    br = tf.TransformBroadcaster()
+    result = None
+    foundSolution = False    
+
+    for i in range(0, 9):
+        camera_name = "camera_" + str(i)
+        if l.frameExists(camera_name):
+            # print ("camera_name is " + camera_name) # DEBUG
+            try:
+                now = rospy.Time()
+                # wait for the transform ready from the map to the camera for 1 second.
+                l.waitForTransform("map", camera_name, now, rospy.Duration(1.0))
+                # extract the transform camera pose in the map coordinate.
+                (trans, rot) = l.lookupTransform("map", camera_name, now)
+                # convert the rotate matrix to theta angle in 2d
+                matrix = quaternion_matrix(rot)
+                angle = math.atan2(matrix[1][2], matrix[0][2])
+                # this is not required, I just used this for debug in RVIZ
+                br.sendTransform((trans[0], trans[1], 0), tf.transformations.quaternion_from_euler(0,0,angle), rospy.Time.now(), "base_link", "map")
+                result = np.array([trans[0], trans[1], angle])
+                foundSolution = True
+                break
+            except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException, tf2_ros.TransformException):
+                print("meet error")
+    listener.clear()
+    return foundSolution, result
+
+
 def genTwistMsg(desired_twist):
     """
     Convert the twist to twist msg.
@@ -83,6 +123,9 @@ def genTwistMsg(desired_twist):
     return twist_msg
 
 def coord(twist, current_state):
+    """
+    Convert the twist into the car coordinate
+    """
     J = np.array([[np.cos(current_state[2]), np.sin(current_state[2]), 0.0],
                   [-np.sin(current_state[2]), np.cos(current_state[2]), 0.0],
                   [0.0,0.0,1.0]])
@@ -92,21 +135,18 @@ def coord(twist, current_state):
 
 if __name__ == "__main__":
     import time
-    rospy.init_node("open_loop_control")
+    rospy.init_node("hw2")
     pub_twist = rospy.Publisher("/twist", Twist, queue_size=1)
+    
+    listener = tf.TransformListener()
 
-    # waypoint = np.array([[0.0,0.0,0.0], 
-    #                      [0.5,0.0,0.0],
-    #                      [0.5,1.0,np.pi],
-    #                      [0.0,0.0,0.0]])
     waypoint = np.array([[0.0,0.0,0.0], 
-                         [-0.5,0.0,0.0],
-                         [-0.5,0.5,np.pi/2.0],
-                         [-1.0,0.5,0.0]
-                         ]) 
+                         [0.5,0.0,0.0],
+                         [0.5,1.0,np.pi],
+                         [0.0,0.0,0.0]])
 
     # init pid controller
-    pid = PIDcontroller(0.2,0.005,0.005)
+    pid = PIDcontroller(0.1, 0.02, 0.05)
 
     # init current state
     current_state = np.array([0.0,0.0,0.0])
@@ -124,19 +164,26 @@ if __name__ == "__main__":
         # publish the twist
         pub_twist.publish(genTwistMsg(coord(update_value, current_state)))
         #print(coord(update_value, current_state))
-        time.sleep(0.07)
+        time.sleep(0.05)
         # update the current state
         current_state += update_value
+        found_state, estimated_state = getCurrentPos(listener)
+        if found_state: # if the tag is detected, we can use it to update current state.
+            current_state = estimated_state
         while(np.linalg.norm(pid.getError(current_state, wp)) > 0.05): # check the error between current state and current way point
             # calculate the current twist
             update_value = pid.update(current_state)
             # publish the twist
-            pub_twist.publish(genTwistMsg(coord(update_value, current_state)))
+            pub_twist.publish(genTwistMsg(coord(update_value, current_state))) 
             #print(coord(update_value, current_state))
-            time.sleep(0.07)
+            # frames_dict = yaml.safe_load(tf_buffer.all_frames_as_yaml())
+            # print ('PRINTING ALL FRAMES')
+            # print (list(frames_dict.keys()))
+            time.sleep(0.05)
             # update the current state
             current_state += update_value
-            
-        
+            found_state, estimated_state = getCurrentPos(listener)
+            if found_state:
+                current_state = estimated_state
     # stop the car and exit
     pub_twist.publish(genTwistMsg(np.array([0.0,0.0,0.0])))

@@ -41,20 +41,28 @@ tuple<vector<apriltag_pose_t>, vector<int>, cv::Mat> AprilDetection::processImag
                     .buf    = image_gray.data 
   };
 
+
   zarray_t * detections = apriltag_detector_detect(a_detector, &im);
 
   apriltag_detection_t *det;
+  apriltag_detection_info_t tag_info; 
   vector<apriltag_pose_t> poses;
   vector<int> ids;
+
+  tag_info.tagsize = 0.1655;
+  tag_info.fx = 679.342574; 
+  tag_info.fy = 679.697958;
+  tag_info.cx = 952.345137;
+  tag_info.cy = 535.054983;
 
   for (int i=0; i<zarray_size(detections); i++){
 
     zarray_get(detections, i, &det);
-    info.det = det;
+    tag_info.det = det;
     apriltag_pose_t pose;
 
     // estimate SE(3) pose 
-    estimate_tag_pose(&info, &pose);
+    estimate_tag_pose(&tag_info, &pose);
     poses.push_back(pose);
     ids.push_back(det->id);
 
@@ -62,12 +70,4 @@ tuple<vector<apriltag_pose_t>, vector<int>, cv::Mat> AprilDetection::processImag
   
   return make_tuple(poses, ids, image);
 
-}
-
-void AprilDetection::setInfo(double tagSize, double fx, double fy, double cx, double cy){
-  info.tagsize = tagSize;
-  info.fx = fx;
-  info.fy = fy;
-  info.cx = cx;
-  info.cy = cy;
 }

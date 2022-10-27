@@ -16,10 +16,9 @@ class AprilDetection{
 
     // process input image
     tuple<vector<apriltag_pose_t>, vector<int>, cv::Mat> processImage(cv::Mat image);
-    void setInfo(double tagSize, double fx, double fy, double cx, double cy);
-    
+
     // variables
-    apriltag_detection_info_t info;
+    apriltag_detection_info_t camera_params;
 
   private:
     apriltag_detector_t *a_detector;

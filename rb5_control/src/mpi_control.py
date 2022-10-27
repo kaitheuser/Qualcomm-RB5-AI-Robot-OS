@@ -1,10 +1,10 @@
 from megapi import MegaPi
 
 
-MFR = 3     # port for motor front right
-MBL = 2     # port for motor back left
-MBR = 11    # port for motor back right
-MFL = 10    # port for motor front left
+MFR = 2     # port for motor front right
+MBL = 3     # port for motor back left
+MBR = 10    # port for motor back right
+MFL = 11    # port for motor front left
 
 
 class MegaPiController:
@@ -51,10 +51,11 @@ class MegaPiController:
     def carStraight(self, speed):
         if self.verbose:
             print("CAR STRAIGHT:")
-        if speed >= 0:
-            self.setFourMotors(-speed, speed-4, -speed, speed-4)
-        else:
-            self.setFourMotors(-speed+5, speed, -speed+5, speed) # For reverse
+        #if speed >= 0:
+            #self.setFourMotors(-speed, speed-4, -speed, speed-4)
+        self.setFourMotors(-speed, speed, -speed, speed)
+        #else:
+        #    self.setFourMotors(-speed+5, speed, -speed+5, speed) # For reverse
 
     def carRotate(self, speed):
         if self.verbose:
@@ -64,7 +65,8 @@ class MegaPiController:
     def carSlide(self, speed):
         if self.verbose:
             print("CAR SLIDE:")
-        self.setFourMotors(speed-4, speed-4, -speed, -speed+5)
+        #self.setFourMotors(speed-4, speed-4, -speed, -speed+5)
+        self.setFourMotors(speed, speed, -speed, -speed)
     
     def carMixed(self, v_straight, v_rotate, v_slide):
         if self.verbose:
