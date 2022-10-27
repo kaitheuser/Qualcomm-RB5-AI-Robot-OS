@@ -23,7 +23,7 @@ class PIDcontroller:
         self.I = np.array([0.0,0.0,0.0])
         self.lastError = np.array([0.0,0.0,0.0])
         self.timestep = 0.1
-        self.maximumValue = 0.03
+        self.maximumValue = 0.035
 
     def setTarget(self, targetx, targety, targetw):
         """
@@ -146,7 +146,9 @@ if __name__ == "__main__":
                          [0.0,0.0,0.0]])
 
     # init pid controller
-    pid = PIDcontroller(0.1, 0.02, 0.05)
+    #pid = PIDcontroller(0.1, 0.02, 0.05)
+    scale = 1.0
+    pid = PIDcontroller(0.03*scale, 0.002*scale, 0.00001*scale)
 
     # init current state
     current_state = np.array([0.0,0.0,0.0])
@@ -170,7 +172,7 @@ if __name__ == "__main__":
         found_state, estimated_state = getCurrentPos(listener)
         if found_state: # if the tag is detected, we can use it to update current state.
             current_state = estimated_state
-        while(np.linalg.norm(pid.getError(current_state, wp)) > 0.05): # check the error between current state and current way point
+        while(np.linalg.norm(pid.getError(current_state, wp)) > 0.30): # check the error between current state and current way point
             # calculate the current twist
             update_value = pid.update(current_state)
             # publish the twist

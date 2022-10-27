@@ -1,6 +1,6 @@
 <launch>
   <include file="$(find rb5_vision)/launch/rb_camera_main_ocv.launch" />
   <node pkg="april_detection" type="april_detection_node" name="april_detection_node" output="screen" />
-  <node pkg="tf" type="static_transform_publisher" name="marker0_trans" args="1.1 0 0 0.5 -0.5 0.5 -0.5 map marker_0 100" />
-  <node pkg="tf" type="static_transform_publisher" name="marker1_trans" args="-0.44 1 0 -0.5 -0.5 0.5 0.5 map marker_1 100" />
+  <node pkg="tf" type="static_transform_publisher" name="marker0_trans" args="1.0 0 0 0.5 -0.5 0.5 -0.5 map marker_0 100" />
+  <node pkg="tf" type="static_transform_publisher" name="marker1_trans" args="-0.5 1 0 -0.5 -0.5 0.5 0.5 map marker_1 100" />
 </launch>
