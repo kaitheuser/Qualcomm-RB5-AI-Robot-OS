@@ -5,6 +5,7 @@ import math
 import tf
 from geometry_msgs.msg import Twist
 from april_detection.msg import AprilTagDetectionArray
+from tf.transformations import euler_from_quaternion
 from rb5_visual_servo_control import PIDcontroller, getCurrentPos, genTwistMsg, coord
 
 class EKF_vSLAM:
@@ -27,7 +28,7 @@ class EKF_vSLAM:
         self.cov = np.zeros((3, 3))                 # Covariance matrix of the state model, which is the uncertainty in the pose/state estimate, (3 + 2M, 3 + 2M)
         self.observed = []                          # List that stores observed Apriltags' id
     
-    def predict_EKF(self, twist, dt, var_System_noise):
+    def predict_EKF(self, twist, dt):
         """
         EKF Prediction Step 
         
@@ -37,8 +38,6 @@ class EKF_vSLAM:
             Control vector, which includes twist vector (i.e., linear velocities, and angular velocity)
         dt: float
             Timestep
-        var_system_noise: float
-            Variance of the vehicle model/system noise
         """
         vx, vy, w = twist           # Get vehicle linear velocities and angular velocity
         
@@ -84,26 +83,34 @@ class EKF_vSLAM:
         # tag_id, curr_r, curr_z, curr_x
         for posX_landmark, posY_landmark, tagID in landmarks:
             
+            r = np.linalg.norm(np.array([posX_landmark, posY_landmark]))
+            phi = math.atan2(posX_landmark, posY_landmark)
+            
             if tagID not in self.observed:
                 self.observed.append(tagID)         # Append to the observed list
                 j = self.observed.index(tagID)      # Get the index of the tagID from the observed list
-                idx = 3 + 2 * j                     # Determine the index of the tagID for the state vector
-                r = np.linalg.norm(np.array([posX_landmark, posY_landmark])
-                phi = math.atan2(posX_landmark, posY_landmark)
                 # Landmark position in world frame
-                landmark_x = x + math.cos(phi + theta)          
-                landmark_y = x + math.cos(phi + theta)
+                landmark_x = x + r * math.cos(phi + theta)          
+                landmark_y = x + r * math.cos(phi + theta)
                 # Vertically stack to mew
                 self.mu = np.vstack((self.mu, landmark_x, landmark_y))
                 # Get the length of the vehicle state vector.
                 mu_len = len(self.mu)
+                # Update Covariance size
+                F = np.eye(mu_len)
+                Qt = np.eye(mu_len) * Qt[0,0]
+                # Estimate the covariance
+                self.cov = F @ self.cov @ F.T + Qt
+                
+            j = self.observed.index(tagID)      # Get the index of the tagID from the observed list  
+            idx = 3 + 2 * j                     # Determine the index of the tagID for the state vector
 
-            # Determine the distance between landmark position and vehicle position
-            delta = np.array([[self.mu[id][0] - x], [self.mu[idx+1][0] - y]])
+            # Determine the distance between landmark position and vehicle position [2, 1]
+            delta = np.array([[self.mu[idx][0] - x], [self.mu[idx+1][0] - y]])
             # Determine q (scalar)
             q = delta.T @ delta
 
-            # Convert the observation data format to range-bearing format
+            # Convert the observation data format to range-bearing format [2, 1]
             z_tilde = np.array([[np.sqrt(q)], [math.atan2(delta[0][0], delta[1][0]) - theta]])
 
             # Create Fxj matrix that map from 2 to 2M + 3
@@ -139,6 +146,18 @@ if __name__ == "__main__":
     rospy.init_node("vSLAM")
     pub_twist = rospy.Publisher("/twist", Twist, queue_size=1)
     
+    apriltag_detected = True
+    landmarks_Info = None
+    def apriltag_callback(msg):
+        global apriltag_detected
+        global landmarks_Info
+        if len(msg.detections) == 0:
+            apriltag_detected = False
+        else:
+            apriltag_detected = True
+            landmarks_Info = msg.detections
+    rospy.Subscriber("/apriltag_detection_array", AprilTagDetectionArray, apriltag_callback)
+    
     listener = tf.TransformListener()
 
     # Square Path
@@ -151,6 +170,10 @@ if __name__ == "__main__":
     # init pid controller
     scale = 1.0
     pid = PIDcontroller(0.03*scale, 0.002*scale, 0.00001*scale)
+    
+    # init ekf vslam
+    ekf_vSLAM = EKF_vSLAM(var_System_noise=10, var_Sensor_noise=[1, 1])
+    timestep = 0.1
 
     # init current state
     current_state = np.array([0.0,0.0,0.0])
@@ -168,21 +191,58 @@ if __name__ == "__main__":
         pub_twist.publish(genTwistMsg(coord(update_value, current_state)))
         #print(coord(update_value, current_state))
         time.sleep(0.05)
-        # update the current state
-        current_state += update_value
-        found_state, estimated_state = getCurrentPos(listener)
-        if found_state: # if the tag is detected, we can use it to update current state.
-            current_state = estimated_state
+        if apriltag_detected:
+            # Predict EKF
+            ekf_vSLAM.predict_EKF(update_value, timestep)
+            # Get landmark
+            landmarks = []
+            for landmark_info in landmarks_Info:
+                tag_id = landmark_info.id
+                _, curr_r, _ = euler_from_quaternion(
+                    [
+                        landmark_info.pose.orientation.w,
+                        landmark_info.pose.orientation.x,
+                        landmark_info.pose.orientation.y,
+                        landmark_info.pose.orientation.z,
+                    ])
+                curr_pose = landmark_info.pose.position
+                curr_x, curr_z = -curr_pose.x, curr_pose.z
+                landmarks.append([curr_x, curr_z, tag_id])       
+            # Update EKF
+            joint_state, _ = ekf_vSLAM.update_EKF(landmarks)
+            current_state = np.array([joint_state[0,0],joint_state[1,0],joint_state[2,0]])
+        else:
+            # update the current state
+            current_state += update_value
+
         while(np.linalg.norm(pid.getError(current_state, wp)) > 0.30): # check the error between current state and current way point
             # calculate the current twist
             update_value = pid.update(current_state)
             # publish the twist
             pub_twist.publish(genTwistMsg(coord(update_value, current_state))) 
             time.sleep(0.05)
-            # update the current state
-            current_state += update_value
-            found_state, estimated_state = getCurrentPos(listener)
-            if found_state:
-                current_state = estimated_state
+            if apriltag_detected:
+                # Predict EKF
+                ekf_vSLAM.predict_EKF(update_value, timestep)
+                # Get landmark
+                landmarks = []
+                for landmark_info in landmarks_Info:
+                    tag_id = landmark_info.id
+                    _, curr_r, _ = euler_from_quaternion(
+                        [
+                            landmark_info.pose.orientation.w,
+                            landmark_info.pose.orientation.x,
+                            landmark_info.pose.orientation.y,
+                            landmark_info.pose.orientation.z,
+                        ])
+                    curr_pose = landmark_info.pose.position
+                    curr_x, curr_z = -curr_pose.x, curr_pose.z
+                    landmarks.append([curr_x, curr_z, tag_id])       
+                # Update EKF
+                joint_state, _ = ekf_vSLAM.update_EKF(landmarks)
+                current_state = np.array([joint_state[0,0],joint_state[1,0],joint_state[2,0]])
+            else:
+                # update the current state
+                current_state += update_value
     # stop the car and exit
     pub_twist.publish(genTwistMsg(np.array([0.0,0.0,0.0])))
