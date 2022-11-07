@@ -6,7 +6,9 @@ import tf
 from geometry_msgs.msg import Twist
 from april_detection.msg import AprilTagDetectionArray
 from tf.transformations import euler_from_quaternion
-from rb5_visual_servo_control import PIDcontroller, getCurrentPos, genTwistMsg, coord
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
+from rb5_visual_servo_control import PIDcontroller, genTwistMsg, coord
 
 class EKF_vSLAM:
     def __init__(self, var_System_noise, var_Sensor_noise) -> None:
@@ -139,6 +141,28 @@ class EKF_vSLAM:
             self.cov = (np.eye(mu_len) - K @ H) @ self.cov
 
         return self.mu, self.cov
+    
+# Initialize plot
+fig, ax = plt.subplots()
+pos_x, pos_y = [], []
+landmark_x, landmark_y = [], []
+ax.plot(pos_x, pos_y)
+
+def update():
+
+    plt.cla()
+    ax.plot(pos_x, pos_y , '--g*', label = "Robot Position")
+    #ax.scatter(wp_x, wp_y, c ="yellow", linewidths = 2, marker ="^", edgecolor ="red", s = 200, label = "Waypoint")
+    ax.scatter(landmark_x, landmark_x, c ="blue", linewidths = 2, marker ="s", edgecolor ="purple", s = 100, label = "April Tag")
+    ax.set_xlim(-1.0, 4.0)
+    ax.set_ylim(-1.0, 4.0)
+    ax.set_xlabel('Length, x [m]')
+    ax.set_ylabel('Length, y [m]')
+    ax.set_title('Scaled Down Map - 50%')
+    ax.legend()
+# Update plot every 200 ms.
+ani = FuncAnimation(fig=fig, func=update, interval = 200)
+plt.show()
 
 
 if __name__ == "__main__":
@@ -214,6 +238,17 @@ if __name__ == "__main__":
         else:
             # update the current state
             current_state += update_value
+            
+        # Plot 
+        pos_x.append(current_state[0])
+        pos_y.append(current_state[1])
+        M = (len(joint_state) - 3) // 2 #4
+        M_l = len(landmark_x) # 2
+        if M > M_l:
+            for idx in range(0, M-M_l):
+                landmark_x.append(joint_state[3+2*(M_l+idx)][0])
+                landmark_y.append(joint_state[3+2*(M_l+idx+1)][0])
+            
 
         while(np.linalg.norm(pid.getError(current_state, wp)) > 0.30): # check the error between current state and current way point
             # calculate the current twist
@@ -244,5 +279,16 @@ if __name__ == "__main__":
             else:
                 # update the current state
                 current_state += update_value
+                
+            # Plot 
+            pos_x.append(current_state[0])
+            pos_y.append(current_state[1])
+            M = (len(joint_state) - 3) // 2 #4
+            M_l = len(landmark_x) # 2
+            if M > M_l:
+                for idx in range(0, M-M_l):
+                    landmark_x.append(joint_state[3+2*(M_l+idx)][0])
+                    landmark_y.append(joint_state[3+2*(M_l+idx+1)][0])
+                    
     # stop the car and exit
     pub_twist.publish(genTwistMsg(np.array([0.0,0.0,0.0])))
