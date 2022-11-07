@@ -78,8 +78,9 @@ class EKF_vSLAM:
         for posX_landmark, posY_landmark, tagID in landmarks:
             
             if tagID not in self.observed:
-                self.observed.append(tagID)
-                j = self.observed.index(tagID)
+                self.observed.append(tagID)         # Append to the observed list
+                j = self.observed.index(tagID)      # Get the index of the tagID from the observed list
+                idx = 3 + 2 * j                     # Determine the index of the tagID for the state vector
                 
 
             
