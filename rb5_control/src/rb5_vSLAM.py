@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import rospy
 import numpy as np
+import math
 import tf
 from geometry_msgs.msg import Twist
 from april_detection.msg import AprilTagDetectionArray
@@ -15,11 +16,11 @@ class EKF_vSLAM:
         ----------
         var_System_noise: float
             Variance of the vehicle model/system noise
-        var_Sensor_noise: float
+        var_Sensor_noise: np.ndarray for r and phi (size 2)
             Variance of the sensor noise
         """
         self.var_System_noise = var_System_noise 
-        self.var_Sensom_noise = var_Sensor_noise
+        self.var_Sensor_noise = var_Sensor_noise
         
         # Initialization
         self.mu = np.zeros((3, 1))                  # Pose of the vehicle and positions of the landmark. (M - number of landmarks), (3 + 2M, 1)
@@ -74,43 +75,63 @@ class EKF_vSLAM:
         
         # Get the length of the vehicle state vector.
         mu_len = len(self.mu)
+
+        # Define Sensor Noise
+        Rt = np.eye(2)
+        var_r, var_phi = self.var_Sensor_noise
+        Rt[0,0], Rt[1,1] = var_r, var_phi  
         
+        # tag_id, curr_r, curr_z, curr_x
         for posX_landmark, posY_landmark, tagID in landmarks:
             
             if tagID not in self.observed:
                 self.observed.append(tagID)         # Append to the observed list
                 j = self.observed.index(tagID)      # Get the index of the tagID from the observed list
                 idx = 3 + 2 * j                     # Determine the index of the tagID for the state vector
-                
+                r = np.linalg.norm(np.array([posX_landmark, posY_landmark])
+                phi = math.atan2(posX_landmark, posY_landmark)
+                # Landmark position in world frame
+                landmark_x = x + math.cos(phi + theta)          
+                landmark_y = x + math.cos(phi + theta)
+                # Vertically stack to mew
+                self.mu = np.vstack((self.mu, landmark_x, landmark_y))
+                # Get the length of the vehicle state vector.
+                mu_len = len(self.mu)
 
+            # Determine the distance between landmark position and vehicle position
+            delta = np.array([[self.mu[id][0] - x], [self.mu[idx+1][0] - y]])
+            # Determine q (scalar)
+            q = delta.T @ delta
+
+            # Convert the observation data format to range-bearing format
+            z_tilde = np.array([[np.sqrt(q)], [math.atan2(delta[0][0], delta[1][0]) - theta]])
+
+            # Create Fxj matrix that map from 2 to 2M + 3
+            Fxj = np.array((5, mu_len))
+            Fxj[:3,:3] = np.eye(3)
+            Fxj[3, idx], Fxj[4, idx+1] = 1, 1
+
+            # Define Jacobian Matrix for the Sensor Measurement
+            J = 1 / q * np.array([
+                [-np.sqrt(q) * delta[0][0], -np.sqrt(q) * delta[1][0], 0, np.sqrt(q) * delta[0][0], np.sqrt(q) * delta[1][0]],
+                [delta[1][0], -delta[0][0], -q, -delta[1][0], delta[0][0]]                
+                ])
             
-                
-                
-                
-                
-            
-                
-            
-            
-            
-            
-            
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+            # Calculate H, which is the measurement prediction p(z |s ) ie a prediction of where features 
+            # in the world are in the sensory frame [2, 3+2M]
+            H = J @ Fxj 
+
+            # Calculate the Kalman Gain, K [3+2M, 2]
+            K = self.cov @ H.T @ np.linalg.inv(H @ self.cov @ H.T + Rt)
+
+            # Define sensor measurement, z
+            z = np.array([[r], [phi]])
+            # Update mu
+            self.mu = self.mu + K @ (z - z_tilde)
+            # Update cov
+            self.cov = (np.eye(mu_len) - K @ H) @ self.cov
+
+        return self.mu, self.cov
 
 
 if __name__ == "__main__":
@@ -141,7 +162,6 @@ if __name__ == "__main__":
         print("move to way point", wp)
         # set wp as the target point
         pid.setTarget(wp)
-
         # calculate the current twist
         update_value = pid.update(current_state)
         # publish the twist
