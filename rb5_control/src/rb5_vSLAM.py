@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 import rospy
+import csv
 import numpy as np
 import math
 import tf
+import time
 from geometry_msgs.msg import Twist
 from april_detection.msg import AprilTagDetectionArray
 from tf.transformations import euler_from_quaternion
-import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
 from rb5_visual_servo_control import PIDcontroller, genTwistMsg, coord
 
 class EKF_vSLAM:
@@ -17,10 +17,10 @@ class EKF_vSLAM:
         
         Parameters
         ----------
-        var_System_noise: float
-            Variance of the vehicle model/system noise
-        var_Sensor_noise: np.ndarray for r and phi (size 2)
-            Variance of the sensor noise
+        var_System_noise: list
+            Variance of the vehicle model/system noise (size 2)
+        var_Sensor_noise: list 
+            Variance of the sensor noise for r and phi (size 2)
         """
         self.var_System_noise = var_System_noise 
         self.var_Sensor_noise = var_Sensor_noise
@@ -40,6 +40,13 @@ class EKF_vSLAM:
             Control vector, which includes twist vector (i.e., linear velocities, and angular velocity)
         dt: float
             Timestep
+            
+        Return
+        ----------
+        self.mu: numpy.ndarray (3 + 2M, 1)
+            Estimated pose of the vehicle and positions of the landmark. (M - number of landmarks), (3 + 2M, 1)
+        self.cov: numpy.ndarray (3 + 2M, 3 + 2M)
+            Estimated covariance matrix of the state model, which is the uncertainty in the pose/state estimate, (3 + 2M, 3 + 2M)
         """
         vx, vy, w = twist           # Get vehicle linear velocities and angular velocity
         
@@ -55,12 +62,17 @@ class EKF_vSLAM:
         u = np.zeros((mu_len, 1))
         u[0,0], u[1,0], u[2,0] = vx, vy, w
         # Define Qt matrix, which is the uncertainty of the model/system noise
-        Qt = np.eye(mu_len) * np.random.normal(0, np.sqrt(self.var_System_noise))
+        self.Qt = np.zeros((mu_len, mu_len)) 
+        var_Model_noise_linear = np.random.normal(0, np.sqrt(self.var_System_noise[0]))
+        var_Model_noise_angular = np.random.normal(0, np.sqrt(self.var_System_noise[1]))
+        self.Qt[0,0], self.Qt[1,1], self.Qt[2,2] = var_Model_noise_linear, var_Model_noise_linear, var_Model_noise_angular
         
         # Estimate the state
         self.mu = F @ self.mu + G @ u
         # Estimate the covariance
-        self.cov = F @ self.cov @ F.T + Qt
+        self.cov = F @ self.cov @ F.T + self.Qt
+        
+        return self.mu, self.cov
         
     def update_EKF(self, landmarks):
         """
@@ -70,6 +82,13 @@ class EKF_vSLAM:
         ----------
         landmarks:
             Detected landmarks
+            
+        Return
+        ----------
+        self.mu: numpy.ndarray (3 + 2M, 1)
+            Updated pose of the vehicle and positions of the landmark. (M - number of landmarks), (3 + 2M, 1)
+        self.cov: numpy.ndarray (3 + 2M, 3 + 2M)
+            Updated covariance matrix of the state model, which is the uncertainty in the pose/state estimate, (3 + 2M, 3 + 2M)
         """
         
         x, y, theta = self.mu[:3, 0]           # Get estimated vehicle pose
@@ -78,15 +97,16 @@ class EKF_vSLAM:
         mu_len = len(self.mu)
 
         # Define Sensor Noise
-        Rt = np.eye(2)
         var_r, var_phi = self.var_Sensor_noise
-        Rt[0,0], Rt[1,1] = var_r, var_phi  
+        sensor_noise_r = np.random.normal(0, np.sqrt(self.var_Sensor_noise[0]))
+        sensor_noise_phi = np.random.normal(0, np.sqrt(self.var_Sensor_noise[1]))
+        Rt = np.diag(np.array([var_r, var_phi]))
         
         # tag_id, curr_r, curr_z, curr_x
         for posX_landmark, posY_landmark, tagID in landmarks:
             
-            r = np.linalg.norm(np.array([posX_landmark, posY_landmark]))
-            phi = math.atan2(posX_landmark, posY_landmark)
+            r = np.linalg.norm(np.array([posX_landmark, posY_landmark])) + sensor_noise_r
+            phi = math.atan2(posX_landmark, posY_landmark) + sensor_noise_phi
             
             if tagID not in self.observed:
                 self.observed.append(tagID)         # Append to the observed list
@@ -100,9 +120,10 @@ class EKF_vSLAM:
                 mu_len = len(self.mu)
                 # Update Covariance size
                 F = np.eye(mu_len)
-                Qt = np.eye(mu_len) * Qt[0,0]
+                self.Qt = np.block([[self.Qt, np.zeros((3,2))],
+                                    [np.zeros((2, mu_len-2)), np.zeros((2,2))]])
                 # Estimate the covariance
-                self.cov = F @ self.cov @ F.T + Qt
+                self.cov = F @ self.cov @ F.T + self.Qt
                 
             j = self.observed.index(tagID)      # Get the index of the tagID from the observed list  
             idx = 3 + 2 * j                     # Determine the index of the tagID for the state vector
@@ -116,7 +137,7 @@ class EKF_vSLAM:
             z_tilde = np.array([[np.sqrt(q)], [math.atan2(delta[0][0], delta[1][0]) - theta]])
 
             # Create Fxj matrix that map from 2 to 2M + 3
-            Fxj = np.array((5, mu_len))
+            Fxj = np.zeros((5, mu_len))
             Fxj[:3,:3] = np.eye(3)
             Fxj[3, idx], Fxj[4, idx+1] = 1, 1
 
@@ -141,37 +162,18 @@ class EKF_vSLAM:
             self.cov = (np.eye(mu_len) - K @ H) @ self.cov
 
         return self.mu, self.cov
-    
-# Initialize plot
-fig, ax = plt.subplots()
-pos_x, pos_y = [], []
-landmark_x, landmark_y = [], []
-ax.plot(pos_x, pos_y)
-
-def update():
-
-    plt.cla()
-    ax.plot(pos_x, pos_y , '--g*', label = "Robot Position")
-    #ax.scatter(wp_x, wp_y, c ="yellow", linewidths = 2, marker ="^", edgecolor ="red", s = 200, label = "Waypoint")
-    ax.scatter(landmark_x, landmark_x, c ="blue", linewidths = 2, marker ="s", edgecolor ="purple", s = 100, label = "April Tag")
-    ax.set_xlim(-1.0, 4.0)
-    ax.set_ylim(-1.0, 4.0)
-    ax.set_xlabel('Length, x [m]')
-    ax.set_ylabel('Length, y [m]')
-    ax.set_title('Scaled Down Map - 50%')
-    ax.legend()
-# Update plot every 200 ms.
-ani = FuncAnimation(fig=fig, func=update, interval = 200)
-plt.show()
 
 
 if __name__ == "__main__":
-    import time
+
+    # Initialize node
     rospy.init_node("vSLAM")
+    # Intialize publisher
     pub_twist = rospy.Publisher("/twist", Twist, queue_size=1)
     
-    apriltag_detected = True
-    landmarks_Info = None
+    # Define callback for subscriber
+    apriltag_detected = True                # April Detected Boolean
+    landmarks_Info = None                   # msg.detections
     def apriltag_callback(msg):
         global apriltag_detected
         global landmarks_Info
@@ -180,9 +182,8 @@ if __name__ == "__main__":
         else:
             apriltag_detected = True
             landmarks_Info = msg.detections
+    # Initialize subscriber
     rospy.Subscriber("/apriltag_detection_array", AprilTagDetectionArray, apriltag_callback)
-    
-    listener = tf.TransformListener()
 
     # Square Path
     waypoint = np.array([[0.0,0.0,0.0], 
@@ -196,16 +197,27 @@ if __name__ == "__main__":
     pid = PIDcontroller(0.03*scale, 0.002*scale, 0.00001*scale)
     
     # init ekf vslam
-    ekf_vSLAM = EKF_vSLAM(var_System_noise=10, var_Sensor_noise=[1, 1])
+    ekf_vSLAM = EKF_vSLAM(var_System_noise=[1e-4, 0.3], var_Sensor_noise=[1e-6, 3.05e-8])
     timestep = 0.1
 
     # init current state
     current_state = np.array([0.0,0.0,0.0])
+    
+    # Initialize telemetry data acquisition
+    t0 = time.time()
+    time_counter = 0.0
+    timestr = time.strftime("%Y%m%d-%H%M%S")
+    # Write CSV file
+    fh = open(timestr+'path.csv', 'w')
+    writer = csv.writer(fh)
+    data = [time_counter] + current_state.tolist()
+    writer.writerow(data)
 
     # in this loop we will go through each way point.
     # once error between the current state and the current way point is small enough, 
     # the current way point will be updated with a new point.
     for wp in waypoint:
+        
         print("move to way point", wp)
         # set wp as the target point
         pid.setTarget(wp)
@@ -213,11 +225,13 @@ if __name__ == "__main__":
         update_value = pid.update(current_state)
         # publish the twist
         pub_twist.publish(genTwistMsg(coord(update_value, current_state)))
-        #print(coord(update_value, current_state))
         time.sleep(0.05)
+        
+        # Predict EKF
+        joint_state, _ = ekf_vSLAM.predict_EKF(update_value, timestep)
+        
         if apriltag_detected:
-            # Predict EKF
-            ekf_vSLAM.predict_EKF(update_value, timestep)
+            
             # Get landmark
             landmarks = []
             for landmark_info in landmarks_Info:
@@ -231,23 +245,21 @@ if __name__ == "__main__":
                     ])
                 curr_pose = landmark_info.pose.position
                 curr_x, curr_z = -curr_pose.x, curr_pose.z
-                landmarks.append([curr_x, curr_z, tag_id])       
+                landmarks.append([curr_x, curr_z, tag_id])  
+                     
             # Update EKF
             joint_state, _ = ekf_vSLAM.update_EKF(landmarks)
-            current_state = np.array([joint_state[0,0],joint_state[1,0],joint_state[2,0]])
-        else:
-            # update the current state
-            current_state += update_value
             
-        # Plot 
-        pos_x.append(current_state[0])
-        pos_y.append(current_state[1])
-        M = (len(joint_state) - 3) // 2 #4
-        M_l = len(landmark_x) # 2
-        if M > M_l:
-            for idx in range(0, M-M_l):
-                landmark_x.append(joint_state[3+2*(M_l+idx)][0])
-                landmark_y.append(joint_state[3+2*(M_l+idx+1)][0])
+        # Update the current state
+        current_state = np.array([joint_state[0,0],joint_state[1,0],joint_state[2,0]])
+
+        # Record telemetry        
+        t1 = time.time()
+        if t1 - t0 >= 0.2:
+            time_counter += t1 - t0
+            data = [time_counter] + joint_state.reshape(-1).tolist()
+            writer.writerow(data)
+            t0 = t1
             
 
         while(np.linalg.norm(pid.getError(current_state, wp)) > 0.30): # check the error between current state and current way point
@@ -256,9 +268,12 @@ if __name__ == "__main__":
             # publish the twist
             pub_twist.publish(genTwistMsg(coord(update_value, current_state))) 
             time.sleep(0.05)
+            
+            # Predict EKF
+            joint_state, _ = ekf_vSLAM.predict_EKF(update_value, timestep)
+            
             if apriltag_detected:
-                # Predict EKF
-                ekf_vSLAM.predict_EKF(update_value, timestep)
+                
                 # Get landmark
                 landmarks = []
                 for landmark_info in landmarks_Info:
@@ -272,23 +287,23 @@ if __name__ == "__main__":
                         ])
                     curr_pose = landmark_info.pose.position
                     curr_x, curr_z = -curr_pose.x, curr_pose.z
-                    landmarks.append([curr_x, curr_z, tag_id])       
+                    landmarks.append([curr_x, curr_z, tag_id])  
+                        
                 # Update EKF
                 joint_state, _ = ekf_vSLAM.update_EKF(landmarks)
-                current_state = np.array([joint_state[0,0],joint_state[1,0],joint_state[2,0]])
-            else:
-                # update the current state
-                current_state += update_value
                 
-            # Plot 
-            pos_x.append(current_state[0])
-            pos_y.append(current_state[1])
-            M = (len(joint_state) - 3) // 2 #4
-            M_l = len(landmark_x) # 2
-            if M > M_l:
-                for idx in range(0, M-M_l):
-                    landmark_x.append(joint_state[3+2*(M_l+idx)][0])
-                    landmark_y.append(joint_state[3+2*(M_l+idx+1)][0])
+            # Update the current state
+            current_state = np.array([joint_state[0,0],joint_state[1,0],joint_state[2,0]])
+
+            # Record telemetry        
+            t1 = time.time()
+            if t1 - t0 >= 0.2:
+                time_counter += t1 - t0
+                data = [time_counter] + joint_state.reshape(-1).tolist()
+                writer.writerow(data)
+                t0 = t1
                     
     # stop the car and exit
     pub_twist.publish(genTwistMsg(np.array([0.0,0.0,0.0])))
+    # Close csv file
+    fh.close()
