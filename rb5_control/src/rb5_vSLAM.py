@@ -11,7 +11,7 @@ from tf.transformations import euler_from_quaternion
 from rb5_visual_servo_control import PIDcontroller, genTwistMsg, coord
 
 # Write CSV file
-timestr = time.strftime("%Y%m%d-%H%M%S")
+timestr = time.strftime("%Y%m%d-%H%M")
 fh = open('/home/rosws/src/rb5_ros/telemetry_data/'+timestr+'_path.csv', 'w')
 writer = csv.writer(fh)
 
@@ -32,10 +32,11 @@ class EKF_vSLAM:
         
         # Initialization
         self.mu = np.zeros((3, 1))                  # Pose of the vehicle and positions of the landmark. (M - number of landmarks), (3 + 2M, 1)
+        #self.mu = np.array([[1/np.sqrt(2),0.0,0.0]]).T # For octagon
         self.cov = np.zeros((3, 3))                 # Covariance matrix of the state model, which is the uncertainty in the pose/state estimate, (3 + 2M, 3 + 2M)
         self.observed = []                          # List that stores observed Apriltags' id
     
-    def predict_EKF(self, twist, dt):
+    def predict_EKF(self, twist):
         """
         EKF Prediction Step 
         
@@ -62,15 +63,13 @@ class EKF_vSLAM:
         F = np.eye(mu_len)
         # Define the G control matrix
         G = np.zeros((mu_len, mu_len))
-        G[0, 0], G[1, 1], G[2, 2] = dt, dt, dt
+        G[0, 0], G[1, 1], G[2, 2] = 1.0, 1.0, 1.0
         # Define the u control vector
         u = np.zeros((mu_len, 1))
         u[0,0], u[1,0], u[2,0] = vx, vy, w
         # Define Qt matrix, which is the uncertainty of the model/system noise
         self.Qt = np.zeros((mu_len, mu_len)) 
-        var_Model_noise_linear = np.random.normal(0, np.sqrt(self.var_System_noise[0]))
-        var_Model_noise_angular = np.random.normal(0, np.sqrt(self.var_System_noise[1]))
-        self.Qt[0,0], self.Qt[1,1], self.Qt[2,2] = var_Model_noise_linear, var_Model_noise_linear, var_Model_noise_angular
+        self.Qt[0,0], self.Qt[1,1], self.Qt[2,2] = self.var_System_noise[0], self.var_System_noise[0], self.var_System_noise[1]
         
         # Estimate the state
         # self.mu = F @ self.mu + G @ u
@@ -100,37 +99,31 @@ class EKF_vSLAM:
         
         x, y, theta = self.mu[:3, 0]           # Get estimated vehicle pose
         
-        # Get the length of the vehicle state vector.
+        # Get the length of the state vector.
         mu_len = len(self.mu)
 
         # Define Sensor Noise
         var_r, var_phi = self.var_Sensor_noise
-        sensor_noise_r = np.random.normal(0, np.sqrt(self.var_Sensor_noise[0]))
-        sensor_noise_phi = np.random.normal(0, np.sqrt(self.var_Sensor_noise[1]))
-        Rt = np.diag(np.array([var_r, var_phi]))
         
         # tag_id, curr_r, curr_z, curr_x
         for posX_landmark, posY_landmark, tagID in landmarks:
             
-            r = np.linalg.norm(np.array([posX_landmark, posY_landmark])) + sensor_noise_r
-            phi = math.atan2(posX_landmark, posY_landmark) + sensor_noise_phi
+            r = np.linalg.norm(np.array([posX_landmark, posY_landmark]))
+            phi = math.atan2(posX_landmark, posY_landmark)
             
             if tagID not in self.observed:
                 self.observed.append(tagID)         # Append to the observed list
                 j = self.observed.index(tagID)      # Get the index of the tagID from the observed list
                 # Landmark position in world frame
                 landmark_x = x + r * math.cos(phi + theta)          
-                landmark_y = x + r * math.cos(phi + theta)
+                landmark_y = y + r * math.sin(phi + theta)
                 # Vertically stack to mew
                 self.mu = np.vstack((self.mu, landmark_x, landmark_y))
                 # Get the length of the vehicle state vector.
                 mu_len = len(self.mu)
                 # Update Covariance size
                 self.cov = np.block([[self.cov, np.zeros((mu_len-2,2))],
-                                     [np.zeros((2, mu_len-2)), np.diag(np.array([var_r, var_phi]))]])
-                # Estimate the covariance
-                # self.cov = F @ self.cov @ F.T + self.Qt
-                # self.cov = multi_dot([F, self.cov, F.T]) + self.Qt
+                                     [np.zeros((2, mu_len-2)), np.diag(np.array([1e6, 1e6]))]])
                 
             j = self.observed.index(tagID)      # Get the index of the tagID from the observed list  
             idx = 3 + 2 * j                     # Determine the index of the tagID for the state vector
@@ -138,12 +131,10 @@ class EKF_vSLAM:
             # Determine the distance between landmark position and vehicle position [2, 1]
             delta = np.array([[self.mu[idx][0] - x], [self.mu[idx+1][0] - y]])
             # Determine q (scalar)
-            # q = delta.T @ delta
             q = multi_dot([delta.T, delta])[0][0]
 
-            # Convert the observation data format to range-bearing format [2, 1]
-            z_tilde = np.array([[np.sqrt(q)], [math.atan2(delta[0][0], delta[1][0]) - theta]])
-
+            z_tilde = np.array([[np.sqrt(q)], [math.atan2(delta[1][0], delta[0][0]) - theta]])
+            
             # Create Fxj matrix that map from 2 to 2M + 3
             Fxj = np.zeros((5, mu_len))
             Fxj[:3,:3] = np.eye(3)
@@ -160,17 +151,23 @@ class EKF_vSLAM:
             # H = J @ Fxj 
             H = multi_dot([J, Fxj])
 
+            # Define the sensor noise matrix Rt [2L, 2L]
+            Rt = np.diag(np.array([var_r, var_phi]))
+
             # Calculate the Kalman Gain, K [3+2M, 2]
             # K = self.cov @ H.T @ np.linalg.inv(H @ self.cov @ H.T + Rt)
             K = multi_dot([self.cov, H.T, np.linalg.inv(multi_dot([H, self.cov, H.T]) + Rt)])
-
+        
             # Define sensor measurement, z
             z = np.array([[r], [phi]])
+            
+            # Calculate measurement error [2L, 1]
+            delta_z =  z - z_tilde
+            delta_z[1][0] = (delta_z[1][0] + np.pi) % (2 * np.pi) - np.pi
+        
             # Update mu
-            # self.mu = self.mu + K @ (z - z_tilde)
-            self.mu = self.mu + multi_dot([K, (z - z_tilde)])
+            self.mu = self.mu + multi_dot([K, delta_z])
             # Update cov
-            # self.cov = (np.eye(mu_len) - K @ H) @ self.cov
             self.cov = multi_dot([(np.eye(mu_len) - multi_dot([K, H])), self.cov])
             
         return self.mu, self.cov
@@ -198,52 +195,65 @@ if __name__ == "__main__":
     rospy.Subscriber("/apriltag_detection_array", AprilTagDetectionArray, apriltag_callback)
 
     # Square Path
-    # waypoint = np.array([[0.0,0.0,0.0], 
-    #                      [2.0,0.0,0.0],
-    #                      [2.0,2.0,np.pi/2],
-    #                      [0.0,2.0,np.pi],
-    #                      [0.0,0.0,-np.pi/2]])
+    # waypoint = np.array([[0.0,0.0,0.0],
+    #                      [1.0,0.0,0.0],
+    #                      [1.0,0.0,np.pi/2],
+    #                      [1.0,1.0,np.pi/2],
+    #                      [1.0,1.0,np.pi],
+    #                       [0.0,1.0,np.pi],
+    #                       [0.0,0.0,-np.pi/2]])
     
-    waypoint = np.array([[0.0,0.0,0.0], 
-                         [2.0,0.0,0.0]])
+    # Octagon Path
+    waypoint = np.array([[0.0, 0.0, 0.0],
+                         [0.61, 0.0, 0.0],
+                         [1.22, 0.61, np.pi/2],
+                         [1.22, 1.22, np.pi/2],
+                         [0.61, 1.83, np.pi],
+                         [0.0, 1.83, np.pi],
+                         [-0.61, 1.22, -np.pi/2],
+                         [-0.61, 0.61, -np.pi/2],
+                         [0.0, 0.0, 0.0]])
 
     # init pid controller
     scale = 1.0
-    pid = PIDcontroller(0.03*scale, 0.002*scale, 0.00001*scale)
+    #pid = PIDcontroller(0.03*scale, 0.002*scale, 0.00001*scale)
+    #pid = PIDcontroller(0.02*scale, 0.005*scale, 0.00001*scale)
+    pid = PIDcontroller(0.02*scale, 0.003*scale, 0.00005*scale)
     
     # init ekf vslam
-    ekf_vSLAM = EKF_vSLAM(var_System_noise=[1e-6, 0.3], var_Sensor_noise=[1e-6, 3.05e-8])
+    # ekf_vSLAM = EKF_vSLAM(var_System_noise=[1e-6, 0.3], var_Sensor_noise=[1e-6, 3.05e-8])
+    ekf_vSLAM = EKF_vSLAM(var_System_noise=[0.1, 0.01], var_Sensor_noise=[0.01, 0.01])
     #ekf_vSLAM = EKF_vSLAM(var_System_noise=[1, 1], var_Sensor_noise=[1, 1])
 
     # init current state
-    current_state = np.array([0.0,0.0,0.0])
+    # current_state = np.array([1/np.sqrt(2),0.0,0.0])
+    current_state = np.array([0.0, 0.0, 0.0])
+    covariance = np.zeros((3,3))
     
     # Initialize telemetry data acquisition
     t0 = time.time()
     time_counter = 0.0
     data = [time_counter] + current_state.tolist()
     writer.writerow(data)
+    writer.writerow(covariance.flatten().tolist())
 
     # in this loop we will go through each way point.
     # once error between the current state and the current way point is small enough, 
     # the current way point will be updated with a new point.
-    t_i = time.time()
     for wp in waypoint:
         
         print("move to way point", wp)
         # set wp as the target point
         pid.setTarget(wp)
-        # calculate the current twist
+        # calculate the current twist (delta x, delta y, and delta theta)
         update_value = pid.update(current_state)
+        vehicle_twist = coord(update_value, current_state)
         # publish the twist
-        pub_twist.publish(genTwistMsg(coord(update_value, current_state)))
+        pub_twist.publish(genTwistMsg(vehicle_twist))
         time.sleep(0.05)
         
-        # To calculate delta t
-        t_f = time.time()
         # Predict EKF
-        joint_state, _ = ekf_vSLAM.predict_EKF(update_value, t_f-t_i)
-        t_i = t_f
+        joint_state, _ = ekf_vSLAM.predict_EKF(update_value)
         
         if apriltag_detected:
             
@@ -274,21 +284,21 @@ if __name__ == "__main__":
             time_counter += t1 - t0
             data = [time_counter] + joint_state.reshape(-1).tolist() + ekf_vSLAM.observed
             writer.writerow(data)
+            writer.writerow(ekf_vSLAM.cov.flatten().tolist())
             t0 = t1
             
 
-        while(np.linalg.norm(pid.getError(current_state, wp)) > 0.30): # check the error between current state and current way point
+        #while(np.linalg.norm(pid.getError(current_state, wp)) > 0.30): # check the error between current state and current way point
+        while(np.linalg.norm(pid.getError(current_state, wp)) > 0.15): 
             # calculate the current twist
             update_value = pid.update(current_state)
+            vehicle_twist = coord(update_value, current_state)
             # publish the twist
-            pub_twist.publish(genTwistMsg(coord(update_value, current_state))) 
+            pub_twist.publish(genTwistMsg(vehicle_twist))
             time.sleep(0.05)
             
-            # To calculate delta t
-            t_f = time.time()
             # Predict EKF
-            joint_state, _ = ekf_vSLAM.predict_EKF(update_value, t_f-t_i)
-            t_i = t_f
+            joint_state, _ = ekf_vSLAM.predict_EKF(update_value)
             
             if apriltag_detected:
                 
@@ -319,6 +329,7 @@ if __name__ == "__main__":
                 time_counter += t1 - t0
                 data = [time_counter] + joint_state.reshape(-1).tolist() + ekf_vSLAM.observed
                 writer.writerow(data)
+                writer.writerow(ekf_vSLAM.cov.flatten().tolist())
                 t0 = t1
                     
     # stop the car and exit

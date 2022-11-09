@@ -6,7 +6,7 @@ from math import *
 import numpy as np
 
 
-rospy.init_node("quat2rot")
+rospy.init_node("AprilTag_Test")
 while True:
     
     msg = rospy.wait_for_message("/apriltag_detection_array", AprilTagDetectionArray, timeout = 100)
