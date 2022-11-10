@@ -1,6 +1,7 @@
 # Import necessary library
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
+import matplotlib.patches as patches
 import csv
 import numpy as np
 from itertools import count
@@ -68,17 +69,27 @@ def update(i):
     global wp_y
     global observed
     
-    idx = next(counter)*2
+    idx = next(counter)
     if idx < len(data):
         data_t = data[idx]
+        cov_t = covs[idx]
+        cov_size = int(np.sqrt(len(cov_t)))
+        cov_t = np.array(cov_t).reshape(cov_size, cov_size)
         plt.cla()
         if len(data_t) < 5:
             pos_x.append(data_t[1])
             pos_y.append(data_t[2])
+                
         else:
             num_Landmarks = (len(data_t) - 4) // 3
             pos_x.append(data_t[1])
             pos_y.append(data_t[2])
+            
+            cov_v = cov_t[:2, :2]
+            eigenvalues_v, eigenvectors_v = np.linalg.eig(cov_v)
+            ellipse = patches.Ellipse((data_t[1], data_t[2]), width= eigenvalues_v[1], height=eigenvalues_v[0], angle=np.rad2deg(np.arccos(eigenvectors_v[0, 0])), alpha = 0.5)
+            ax.add_patch(ellipse)
+            
             
             landmark_ids = data_t[(4 + 2*num_Landmarks): (4 + 3*num_Landmarks)]
             for landmark_id in landmark_ids:
@@ -87,17 +98,33 @@ def update(i):
                     j = observed.index(landmark_id)
                     tag_x.append(data_t[4 + 2*j])
                     tag_y.append(data_t[5 + 2*j])
+                    
+                    cov_l = cov_t[3+2*j:5+2*j, 3+2*j:5+2*j]
+                    eigenvalues_l, eigenvectors_l = np.linalg.eig(cov_l)
+                    ellipse = patches.Ellipse((data_t[4 + 2*j], data_t[5 + 2*j]), width= eigenvalues_l[1], height=eigenvalues_l[0], angle=np.rad2deg(np.arccos(eigenvectors_l[0, 0])), alpha = 0.5, color='pink')
+                    ax.add_patch(ellipse)
+ 
                 else:
                     j = observed.index(landmark_id)
                     tag_x[j] = data_t[4 + 2*j]
                     tag_y[j] = data_t[5 + 2*j]
+                    
+                    cov_l = cov_t[3+2*j:5+2*j, 3+2*j:5+2*j]
+                    eigenvalues_l, eigenvectors_l = np.linalg.eig(cov_l)
+                    ellipse = patches.Ellipse((data_t[4 + 2*j], data_t[5 + 2*j]), width= eigenvalues_l[1], height=eigenvalues_l[0], angle=np.rad2deg(np.arccos(eigenvectors_l[0, 0])), alpha = 0.5, color='pink')
+                    ax.add_patch(ellipse)
             
-            ax.scatter(tag_x, tag_y, c ="blue", linewidths = 2, marker ="s", edgecolor ="purple", s = 100, label = "April Tag")
+            ax.scatter(tag_x, tag_y, c ="blue", linewidths = 2, marker ="s", edgecolor ="purple", s = 50, label = "April Tag")
         
         ax.plot(pos_x, pos_y , '--g*', label = "Robot Position")
         ax.scatter(wp_x, wp_y, c ="yellow", linewidths = 2, marker ="^", edgecolor ="red", s = 200, label = "Waypoint")
         
-        ax.scatter(tagX, tagY, linewidths = 2, marker ="x", s = 100, label = "True April Tag")
+        ax.scatter(tagX, tagY, linewidths = 2, marker ="x", s = 50, label = "True April Tag")
+        for i, tagID in enumerate(observed):
+            ax.annotate(tagID, (tag_x[i], tag_y[i]), fontsize=16)
+            
+        for i, tagIDx in enumerate([0,1,2,3,4,5,7,8]):
+            ax.annotate(tagIDx, (tagX[i], tagY[i]), fontsize=16)
         
         ax.set_xlabel('Width, x [m]')
         ax.set_ylabel('Length, y [m]')
