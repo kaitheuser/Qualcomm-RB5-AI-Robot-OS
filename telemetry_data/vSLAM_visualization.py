@@ -8,12 +8,9 @@ from itertools import count
 # Load telemetry csv file
 data = []
 covs = []
-# with open("/home/rosws/src/rb5_ros/telemetry_data/20221108-1255sq_best_path.csv", 'r') as f:
+with open("/home/rosws/src/rb5_ros/telemetry_data/20221108-1255sq_best_path.csv", 'r') as f:
 # with open("/home/rosws/src/rb5_ros/telemetry_data/20221109-1316_msqbestpath.csv", 'r') as f:
 # with open("/home/rosws/src/rb5_ros/telemetry_data/20221108-1353oct_best_path.csv", 'r') as f:
-with open("./20221108-1255sq_best_path.csv", 'r') as f:
-# with open("./20221109-1316_msqbestpath.csv", 'r') as f:
-# with open("./20221108-1353oct_best_path.csv", 'r') as f:
     csvreader = csv.reader(f)
     for id, row in enumerate(csvreader):
         if id % 2 == 0:
