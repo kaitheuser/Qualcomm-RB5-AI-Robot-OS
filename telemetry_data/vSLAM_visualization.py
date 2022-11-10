@@ -2,12 +2,15 @@
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import csv
+import numpy as np
 from itertools import count
 
 # Load telemetry csv file
 data = []
 covs = []
 # with open("/home/rosws/src/rb5_ros/telemetry_data/20221108-1255sq_best_path.csv", 'r') as f:
+# with open("/home/rosws/src/rb5_ros/telemetry_data/20221109-1316_msqbestpath.csv", 'r') as f:
+# with open("/home/rosws/src/rb5_ros/telemetry_data/20221108-1353oct_best_path.csv", 'r') as f:
 with open("./20221108-1255sq_best_path.csv", 'r') as f:
 # with open("./20221109-1316_msqbestpath.csv", 'r') as f:
 # with open("./20221108-1353oct_best_path.csv", 'r') as f:
@@ -37,6 +40,26 @@ tag_x = []
 tag_y = []
 observed = []
 
+# Define landmarks and wayppoints
+## Square
+tagX = [-0.61, 0.46, 1.84, 2.44, 2.44, 1.53, 0.32, -0.61]
+tagY = [0.21, -0.61, -0.61, 0.19, 1.51, 2.44, 2.44, 1.75]
+wp_x = [0.0, 1.0, 1.0, 0.0]
+wp_y = [0.0, 0.0, 1.0, 1.0]
+## Multiple Round Square
+# tagX = 0.305 - np.array([-1.22, -0.15, 1.23, 1.83, 1.83, 0.92, -0.29, -1.22])
+# tagX = tagX.tolist()
+# tagY = np.array([0.21, -0.61, -0.61, 0.19, 1.51, 2.44, 2.44, 1.75]) -0.305
+# tagY = tagY.tolist()
+# wp_x = [0.0, 1.0, 1.0, 0.0]
+# wp_y = [0.0, 0.0, 1.0, 1.0]
+## Octagon
+# tagX = [-1.22, -0.15, 1.23, 1.83, 1.83, 0.92, -0.29, -1.22]
+# tagY = [0.21, -0.61, -0.61, 0.19, 1.51, 2.44, 2.44, 1.75]
+# wp_x = [0.0, 0.61, 1.22, 1.22, 0.61, 0.0, -0.61, -0.61]
+# wp_y = [0.0, 0.0, 0.61, 1.22, 1.83, 1.83, 1.22, 0.61]
+
+
 fig, ax = plt.subplots()
 ax.plot(pos_x, pos_y)
 
@@ -44,6 +67,8 @@ counter = count(0,1)
 def update(i):
     global tag_x
     global tag_y
+    global wp_x
+    global wp_y
     global observed
     
     idx = next(counter)*2
@@ -73,7 +98,9 @@ def update(i):
             ax.scatter(tag_x, tag_y, c ="blue", linewidths = 2, marker ="s", edgecolor ="purple", s = 100, label = "April Tag")
         
         ax.plot(pos_x, pos_y , '--g*', label = "Robot Position")
-        # ax.scatter(wp_x, wp_y, c ="yellow", linewidths = 2, marker ="^", edgecolor ="red", s = 200, label = "Waypoint")
+        ax.scatter(wp_x, wp_y, c ="yellow", linewidths = 2, marker ="^", edgecolor ="red", s = 200, label = "Waypoint")
+        
+        ax.scatter(tagX, tagY, linewidths = 2, marker ="x", s = 100, label = "True April Tag")
         
         ax.set_xlabel('Width, x [m]')
         ax.set_ylabel('Length, y [m]')
