@@ -10,8 +10,8 @@ from itertools import count
 data = []
 covs = []
 with open("/home/rosws/src/rb5_ros/telemetry_data/20221108-1255sq_best_path.csv", 'r') as f:
-# with open("/home/rosws/src/rb5_ros/telemetry_data/20221109-1316_msqbestpath.csv", 'r') as f:
-# with open("/home/rosws/src/rb5_ros/telemetry_data/20221108-1353oct_best_path.csv", 'r') as f:
+# with open("/home/rosws/src/rb5_ros/telemetry_data/20221110-1459_msqbestpath.csv", 'r') as f:
+# with open("/home/rosws/src/rb5_ros/telemetry_data/20221108-1358oct_best_path.csv", 'r') as f:
     csvreader = csv.reader(f)
     for id, row in enumerate(csvreader):
         if id % 2 == 0:
@@ -44,16 +44,21 @@ tagX = [-0.61, 0.46, 1.84, 2.44, 2.44, 1.53, 0.32, -0.61]
 tagY = [0.21, -0.61, -0.61, 0.19, 1.51, 2.44, 2.44, 1.75]
 wp_x = [0.0, 1.0, 1.0, 0.0]
 wp_y = [0.0, 0.0, 1.0, 1.0]
+tag_mat = np.array([tagX,tagY])
+
 ## Multiple Round Square
-# tagX = 0.305 - np.array([-1.22, -0.15, 1.23, 1.83, 1.83, 0.92, -0.29, -1.22])
+# tagX = np.array([-1.22, -0.15, 1.23, 1.83, 1.83, 0.92, -0.29, -1.22]) + 0.305
 # tagX = tagX.tolist()
-# tagY = np.array([0.21, -0.61, -0.61, 0.19, 1.51, 2.44, 2.44, 1.75]) -0.305
+# tagY = np.array([0.21, -0.61, -0.61, 0.19, 1.51, 2.44, 2.44, 1.75]) - 0.305
 # tagY = tagY.tolist()
+# tag_mat = np.array([tagX,tagY])
 # wp_x = [0.0, 1.0, 1.0, 0.0]
 # wp_y = [0.0, 0.0, 1.0, 1.0]
+
 ## Octagon
 # tagX = [-1.22, -0.15, 1.23, 1.83, 1.83, 0.92, -0.29, -1.22]
 # tagY = [0.21, -0.61, -0.61, 0.19, 1.51, 2.44, 2.44, 1.75]
+# tag_mat = np.array([tagX,tagY])
 # wp_x = [0.0, 0.61, 1.22, 1.22, 0.61, 0.0, -0.61, -0.61]
 # wp_y = [0.0, 0.0, 0.61, 1.22, 1.83, 1.83, 1.22, 0.61]
 
@@ -130,6 +135,23 @@ def update(i):
         ax.set_ylabel('Length, y [m]')
         ax.set_title('Visual SLAM')
         ax.legend(bbox_to_anchor=(0.80, 1.16), loc='upper left')
+        
+    elif idx == len(data):
+        #Calculate error
+        data_t = data[idx-1]
+        errors = np.zeros((len(observed)))
+        for tagID in observed:
+            j = observed.index(tagID)
+            landmark_j_pos_SLAM = np.array([data_t[4 + 2*j], data_t[5 + 2*j]])
+            j_true = [0,1,2,3,4,5,7,8].index(tagID)
+            landmark_j_pos_true = tag_mat[:,j_true]
+            error = np.linalg.norm(landmark_j_pos_SLAM-landmark_j_pos_true)
+            errors[j_true] = error
+        # Display errors and the average error
+        for tagID in [0,1,2,3,4,5,7,8]:
+            j_true = [0,1,2,3,4,5,7,8].index(tagID)
+            print(f'Error of Landmark {tagID}: {errors[j_true]}')
+        print(f'Average Error of Landmarks: {np.mean(errors)} m')
         
 # Update plot every 200 ms.
 ani = FuncAnimation(fig=fig, func=update, interval = 200)
