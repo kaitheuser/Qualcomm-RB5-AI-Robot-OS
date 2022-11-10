@@ -1,15 +1,11 @@
 #!/usr/bin/env python
-import sys
-import roslib
 import rospy
-import geometry_msgs.msg
 from geometry_msgs.msg import Twist
 import numpy as np
 import math
 import tf
 import tf2_ros
 from tf.transformations import quaternion_matrix
-import yaml
 
 """
 The class of the pid controller.
@@ -23,7 +19,7 @@ class PIDcontroller:
         self.I = np.array([0.0,0.0,0.0])
         self.lastError = np.array([0.0,0.0,0.0])
         self.timestep = 0.1
-        self.maximumValue = 0.035
+        self.maximumValue = 0.031
 
     def setTarget(self, targetx, targety, targetw):
         """

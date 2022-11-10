@@ -151,7 +151,7 @@ class EKF_vSLAM:
             # H = J @ Fxj 
             H = multi_dot([J, Fxj])
 
-            # Define the sensor noise matrix Rt [2L, 2L]
+            # Define the sensor noise matrix Rt [2, 2]
             Rt = np.diag(np.array([var_r, var_phi]))
 
             # Calculate the Kalman Gain, K [3+2M, 2]
@@ -204,21 +204,32 @@ if __name__ == "__main__":
     #                       [0.0,0.0,-np.pi/2]])
     
     # Octagon Path
-    waypoint = np.array([[0.0, 0.0, 0.0],
-                         [0.61, 0.0, 0.0],
-                         [1.22, 0.61, np.pi/2],
-                         [1.22, 1.22, np.pi/2],
-                         [0.61, 1.83, np.pi],
-                         [0.0, 1.83, np.pi],
-                         [-0.61, 1.22, -np.pi/2],
-                         [-0.61, 0.61, -np.pi/2],
-                         [0.0, 0.0, 0.0]])
+    # waypoint = np.array([[0.0, 0.0, 0.0],
+    #                      [0.61, 0.0, 0.0],
+    #                      [1.22, 0.61, np.pi/2],
+    #                      [1.22, 1.22, np.pi/2],
+    #                      [0.61, 1.83, np.pi],
+    #                      [0.0, 1.83, np.pi],
+    #                      [-0.61, 1.22, -np.pi/2],
+    #                      [-0.61, 0.61, -np.pi/2],
+    #                      [0.0, 0.0, 0.0]])
+    
+    # Two Square Path
+    waypoint = np.array([[0.0,0.0,0.0],
+                         [1.0,0.0,np.pi/2],
+                         [1.0,1.0,np.pi],
+                         [0.0,1.0,np.pi],
+                         [0.0,0.0,0.0],
+                         [1.0,0.0,np.pi/2],
+                         [1.0,1.0,np.pi],
+                         [0.0,1.0,np.pi],
+                         [0.0,0.0,-np.pi/2]])
 
     # init pid controller
     scale = 1.0
     #pid = PIDcontroller(0.03*scale, 0.002*scale, 0.00001*scale)
     #pid = PIDcontroller(0.02*scale, 0.005*scale, 0.00001*scale)
-    pid = PIDcontroller(0.02*scale, 0.003*scale, 0.00005*scale)
+    pid = PIDcontroller(0.04*scale, 0.0005*scale, 0.00005*scale)
     
     # init ekf vslam
     # ekf_vSLAM = EKF_vSLAM(var_System_noise=[1e-6, 0.3], var_Sensor_noise=[1e-6, 3.05e-8])
@@ -289,7 +300,7 @@ if __name__ == "__main__":
             
 
         #while(np.linalg.norm(pid.getError(current_state, wp)) > 0.30): # check the error between current state and current way point
-        while(np.linalg.norm(pid.getError(current_state, wp)) > 0.15): 
+        while(np.linalg.norm(pid.getError(current_state, wp)) > 0.20): 
             # calculate the current twist
             update_value = pid.update(current_state)
             vehicle_twist = coord(update_value, current_state)
