@@ -300,7 +300,7 @@ if __name__ == "__main__":
             
 
         #while(np.linalg.norm(pid.getError(current_state, wp)) > 0.30): # check the error between current state and current way point
-        while(np.linalg.norm(pid.getError(current_state, wp)) > 0.20): 
+        while(np.linalg.norm(pid.getError(current_state, wp)) > 0.13): 
             # calculate the current twist
             update_value = pid.update(current_state)
             vehicle_twist = coord(update_value, current_state)
