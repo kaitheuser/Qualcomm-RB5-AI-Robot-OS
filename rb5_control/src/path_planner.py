@@ -30,7 +30,7 @@ class A_Star():
         self.discovered = []                                    # List that stores discovered nodes
         self.path = []                                          # List that store path nodes
         
-        # Add to discovered queue {(cost + euclid_dist, (curr_x, curr_y, [movement], cost + delta))}
+        # Add to discovered queue {(cost + euclid_dist, (curr_x, curr_y, [path], cost + delta))}
         heappush(self.discovered, (self.euclid_dist(start, goal), (start, [], 0)))
         
     def euclid_dist(self, pt_init, pt_final):
@@ -95,6 +95,9 @@ class A_Star():
             if curr_pos in self.visited:
                 continue
             
+            # Append to visited node
+            self.visited.append(curr_pos)
+            
             # Explore other nodes
             for movement in movements:
                 new_pos = self.update_pos(curr_pos, movement)
@@ -123,7 +126,7 @@ class A_Star():
             
             
 # Define Voronoi path planner class
-class Voronoi():
+class voronoi():
     '''
     Voronoi Path Planner Class
     '''
@@ -150,7 +153,7 @@ class Voronoi():
         '''
         Check if the node is a freespace
         '''
-        return not self.check_obstacle([height, width])
+        return not self.check_obstacle(height, width)
         
     def build_Voronoi(self):
         '''

@@ -12,7 +12,7 @@ from april_detection.msg import AprilTagDetectionArray
 from tf.transformations import euler_from_quaternion
 from rb5_visual_servo_control import PIDcontroller, genTwistMsg, coord
 from rb5_vSLAM import EKF_vSLAM
-from scripts.path_planning.path_planner import A_Star, Voronoi
+from path_planner import A_Star, voronoi
 
 
 '''
@@ -31,10 +31,10 @@ dict_wall_lm['lm6'] = [0.0, 0.61]               # TagID 0
 dict_wall_lm['lm7'] = [0.0, 2.44]               # TagID 7
 dict_wall_lm['lm8'] = [2.44, 3.05]              # TagID 5
 # Obstacle landmarks' center point (x, y)
-dict_obs_lm['lm1'] = [1.525, 1.30]              # TagID 4
-dict_obs_lm['lm2'] = [1.69, 1.525]              # TagID 6
-dict_obs_lm['lm3'] = [1.36, 1.525]              # TagID 2
-dict_obs_lm['lm4'] = [1.525, 1.75]              # TagID 3
+dict_obs_lm['lm1'] = [1.53, 1.34]              # TagID 4
+dict_obs_lm['lm2'] = [1.755, 1.505]            # TagID 6
+dict_obs_lm['lm3'] = [1.305, 1.505]            # TagID 2
+dict_obs_lm['lm4'] = [1.53, 1.67]              # TagID 3
 # RB5 Start Position (x, y)
 rb5_start = [0.61, 0.61]
 rb5_goal = [2.44, 2.44]
@@ -42,19 +42,37 @@ rb5_goal = [2.44, 2.44]
 cell_size = 0.1                                 # Size of the cell 0.1m x 0.1m
 rb5_clearance = 0.2                             # Robot Size Diameter 0.2m
 goal_tol = 1                                    # Goal Tolerance that considered waypoint is reached, 1 unit cell
+verbose = True
 
 
 '''
 Path Planner Settings
 ---------------------
 '''
-path_planner = 'A*'  # A* OR Voronoi
-
+path_planner = 'Voronoi'  # A* OR Voronoi
 
 '''
 User-defined/Helper Functions
 -----------------------------
 '''
+# Add verbose=true or true to the command line to see the plots and waypoints
+cmd = sys.argv
+verbose = False
+if len(cmd) > 1: 
+    if 'true' in cmd[1] or 'True' in cmd[1]:
+        verbose = True
+
+# Get height, width of the map
+height, width = 0, 0
+for _, value in dict_wall_lm.items():
+    x, y = value
+    width = max(width, x)
+    height = max(height, y)
+arr_h, arr_w = int(height / cell_size) + 1, int(width / cell_size) + 1
+
+# Build the initial map
+map = np.zeros((arr_h, arr_w))
+
 def ground_position_transform(ground_pos):
     '''
     Transform from ground position to map position.
@@ -87,6 +105,16 @@ def array_to_ground_transform(arr_pos):
     x, y = arr_pos
     return [y * cell_size, 3 - x * cell_size]
 
+# Process obstacles
+obs_lm1 = ground_to_array_transform(dict_obs_lm['lm1'])
+obs_lm2 = ground_to_array_transform(dict_obs_lm['lm2'])
+obs_lm3 = ground_to_array_transform(dict_obs_lm['lm3'])
+obs_lm4 = ground_to_array_transform(dict_obs_lm['lm4'])
+min_x = min(obs_lm1[0], obs_lm2[0], obs_lm3[0], obs_lm4[0])
+min_y = min(obs_lm1[1], obs_lm2[1], obs_lm3[1], obs_lm4[1])
+max_x = max(obs_lm1[0], obs_lm2[0], obs_lm3[0], obs_lm4[0])
+max_y = max(obs_lm1[1], obs_lm2[1], obs_lm3[1], obs_lm4[1])
+
 def can_add_obs(arr_pos):
     '''
     Checking if arr_pos can be treated as an obstacle.
@@ -98,12 +126,23 @@ def add_obs(min_x, min_y, max_x, max_y):
     '''
     Add obstacle area to the mapping array.
     '''
-    clearance = ceil(rb5_clearance / cell_size)
-    # clearance = 0
+    clearance = int(ceil(rb5_clearance / cell_size))
     for x in range(min_x - 1 - clearance, max_x + 2 + clearance):
         for y in range(min_y - 1 - clearance, max_y + 2 + clearance):
             if can_add_obs(arr_pos = (x, y)):
                 map[x, y] = 1
+                
+# Add obstacle
+add_obs(min_x, min_y, max_x, max_y)
+
+# Add walls
+for i in range(int(ceil(rb5_clearance / cell_size))):
+    map[:, i] = map[:, -1 - i] = map[i, :] = map[-1 - i, :] = 1
+    
+# Show the map
+if verbose:
+    plt.imshow(map)
+    plt.show()
                 
 def generate_waypoints(path):
     '''
@@ -134,50 +173,11 @@ Define and Build Initial Map
 arr_start = ground_to_array_transform(rb5_start)
 arr_goal = ground_to_array_transform(rb5_goal)
 
-# Add verbose=true or true to the command line to see the plots and waypoints
-cmd = sys.argv
-verbose = False
-if len(cmd) > 1: 
-    if 'true' in cmd[1] or 'True' in cmd[1]:
-        verbose = True
-
 # Write CSV file
 timestr = time.strftime("%Y%m%d-%H%M")
 fh = open('/home/rosws/src/rb5_ros/telemetry_data/'+timestr+'_path.csv', 'w')
 writer = csv.writer(fh)
 
-# Get height, width of the map
-height, width = 0, 0
-for _, value in dict_wall_lm.items():
-    x, y = value
-    width = max(width, x)
-    height = max(height, y)
-arr_h, arr_w = int(height / cell_size) + 1, int(width / cell_size) + 1
-
-# Build the initial map
-map = np.zeros((arr_h, arr_w))
-
-# Process obstacles
-obs_lm1 = ground_to_array_transform(dict_obs_lm['lm1'])
-obs_lm2 = ground_to_array_transform(dict_obs_lm['lm2'])
-obs_lm3 = ground_to_array_transform(dict_obs_lm['lm3'])
-obs_lm4 = ground_to_array_transform(dict_obs_lm['lm4'])
-min_x = min(obs_lm1[0], obs_lm2[0], obs_lm3[0], obs_lm4[0])
-min_y = min(obs_lm1[1], obs_lm2[1], obs_lm3[1], obs_lm4[1])
-max_x = max(obs_lm1[0], obs_lm2[0], obs_lm3[0], obs_lm4[0])
-max_y = max(obs_lm1[1], obs_lm2[1], obs_lm3[1], obs_lm4[1])
-
-# Add obstacle
-add_obs(min_x, min_y, max_x, max_y)
-
-# Add walls
-for i in range(ceil(rb5_clearance / cell_size)):
-    map[:, i] = map[:, -1 - i] = map[i, :] = map[-1 - i, :] = 1
-    
-# Show the map
-if verbose:
-    plt.imshow(map)
-    plt.show()
 
 if __name__ == "__main__":
 
@@ -238,19 +238,19 @@ if __name__ == "__main__":
             print ('[MESSAGE] Printing waypoints generated by A*...')
             print (np.array(aStar_waypoints))
         
-        # Save path as csv
-        np.savetxt('/home/rosws/src/rb5_ros/waypoints/a_star_waypoints.csv', np.array(aStar_waypoints), delimiter=',')
-        
         # Define waypoints
         waypoint = np.array(aStar_waypoints)
         waypoint = np.vstack((np.array(rb5_start), waypoint))
         thetas = np.array([[0.0],[np.pi/2],[np.pi/2],[np.pi/2],[0.0]])
         waypoint = np.hstack((waypoint, thetas))
         
+        # Save path as csv
+        np.savetxt('/home/rosws/src/rb5_ros/waypoints/a_star_waypoints.csv', np.array(waypoint), delimiter=',')
+        
     elif path_planner == 'Voronoi':
         
         # Create Voronoi path planner object
-        voro = Voronoi(start=arr_start, goal=arr_goal, tol=goal_tol, map=map, verbose=verbose)
+        voro = voronoi(start=arr_start, goal=arr_goal, tol=goal_tol, map=map, verbose=verbose)
         
         # Plan path
         voro_path = voro.plan_path()
@@ -276,14 +276,14 @@ if __name__ == "__main__":
             print ('[MESSAGE] Printing waypoints generated by Voronoi')
             print (np.array(voro_waypoints))
         
-        # Save path as csv
-        np.savetxt('/home/rosws/src/rb5_ros/waypoints/voronoi_waypoints.csv', np.array(voro_waypoints), delimiter=',')
-        
         # Define waypoints
         waypoint = np.array(voro_waypoints)
         waypoint = np.vstack((np.array(rb5_start), waypoint))
         thetas = np.array([[0.0],[0.0],[0.0],[np.pi/2]])
         waypoint = np.hstack((waypoint, thetas))
+        
+        # Save path as csv
+        np.savetxt('/home/rosws/src/rb5_ros/waypoints/voronoi_waypoints.csv', np.array(waypoint), delimiter=',')
         
     else:
         
@@ -295,23 +295,16 @@ if __name__ == "__main__":
                              [1.0,1.0,np.pi],
                              [0.0,1.0,np.pi],
                              [0.0,0.0,-np.pi/2]])
-        
-    print(waypoint)
-    
+
     # init pid controller
     scale = 1.0
-    #pid = PIDcontroller(0.03*scale, 0.002*scale, 0.00001*scale)
-    #pid = PIDcontroller(0.02*scale, 0.005*scale, 0.00001*scale)
     pid = PIDcontroller(0.04*scale, 0.0005*scale, 0.00005*scale)
     
     # init ekf vslam
-    # ekf_vSLAM = EKF_vSLAM(var_System_noise=[1e-6, 0.3], var_Sensor_noise=[1e-6, 3.05e-8])
     ekf_vSLAM = EKF_vSLAM(var_System_noise=[0.1, 0.01], var_Sensor_noise=[0.01, 0.01])
-    #ekf_vSLAM = EKF_vSLAM(var_System_noise=[1, 1], var_Sensor_noise=[1, 1])
 
     # init current state
     current_state = np.array([0.61,0.61,0.0])
-    # current_state = np.array([0.0, 0.0, 0.0])
     covariance = np.zeros((3,3))
     
     # Initialize telemetry data acquisition
@@ -377,7 +370,7 @@ if __name__ == "__main__":
             t0 = t1
             
 
-        #while(np.linalg.norm(pid.getError(current_state, wp)) > 0.30): # check the error between current state and current way point
+        # check the error between current state and current way point
         while(np.linalg.norm(pid.getError(current_state, wp)) > 0.13): 
             # calculate the current twist
             update_value = pid.update(current_state)
