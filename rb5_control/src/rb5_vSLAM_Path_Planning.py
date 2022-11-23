@@ -135,9 +135,24 @@ def add_obs(min_x, min_y, max_x, max_y):
 # Add obstacle
 add_obs(min_x, min_y, max_x, max_y)
 
+def add_landmarks(obs):
+    '''
+    Visualize Landmarks
+    '''
+    for i in obs:
+        map[i[0], i[1]] = 5
+
+# Visualize the landmark location on the obstacles
+add_landmarks([obs_lm1, obs_lm2, obs_lm3, obs_lm4])
+
 # Add walls
 for i in range(int(ceil(rb5_clearance / cell_size))):
     map[:, i] = map[:, -1 - i] = map[i, :] = map[-1 - i, :] = 1
+
+# Visualize the landmark location on the wall
+for _, value in dict_outside_lm.items():
+    x, y = value
+    map[int(x/cell_size), int(y/cell_size)] = 5
     
 # Show the map
 if verbose:

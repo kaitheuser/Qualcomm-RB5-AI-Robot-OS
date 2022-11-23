@@ -147,7 +147,7 @@ class voronoi():
         '''
         Check if the node is an obstacle
         '''
-        return self.map[height, width] == 1
+        return self.map[height, width] in [1,5]
     
     def check_freespace(self, height, width):
         '''
