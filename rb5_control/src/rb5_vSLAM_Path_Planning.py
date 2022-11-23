@@ -42,25 +42,21 @@ rb5_goal = [2.44, 2.44]
 cell_size = 0.1                                 # Size of the cell 0.1m x 0.1m
 rb5_clearance = 0.2                             # Robot Size Diameter 0.2m
 goal_tol = 1                                    # Goal Tolerance that considered waypoint is reached, 1 unit cell
-verbose = True
+verbose = True                                  # True/False - Visualize Path Planner
 
 
 '''
 Path Planner Settings
 ---------------------
 '''
-path_planner = 'Voronoi'  # A* OR Voronoi
+path_planner = 'A*'         # A* OR Voronoi
+# path_planner = 'Voronoi'    # A* OR Voronoi
+
 
 '''
 User-defined/Helper Functions
 -----------------------------
 '''
-# Add verbose=true or true to the command line to see the plots and waypoints
-cmd = sys.argv
-verbose = False
-if len(cmd) > 1: 
-    if 'true' in cmd[1] or 'True' in cmd[1]:
-        verbose = True
 
 # Get height, width of the map
 height, width = 0, 0
@@ -150,7 +146,7 @@ for i in range(int(ceil(rb5_clearance / cell_size))):
     map[:, i] = map[:, -1 - i] = map[i, :] = map[-1 - i, :] = 1
 
 # Visualize the landmark location on the wall
-for _, value in dict_outside_lm.items():
+for _, value in dict_wall_lm.items():
     x, y = value
     map[int(x/cell_size), int(y/cell_size)] = 5
     
