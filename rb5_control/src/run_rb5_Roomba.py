@@ -12,7 +12,7 @@ from april_detection.msg import AprilTagDetectionArray
 from tf.transformations import euler_from_quaternion
 from rb5_visual_servo_control import PIDcontroller, genTwistMsg, coord
 from rb5_vSLAM import EKF_vSLAM
-from path_planner import A_Star, voronoi
+from path_planner import A_Star, voronoi, Coverage
 
 
 '''
@@ -30,15 +30,14 @@ dict_wall_lm['lm5'] = [0.61, 0.0]               # TagID 1
 dict_wall_lm['lm6'] = [0.0, 0.61]               # TagID 0
 dict_wall_lm['lm7'] = [0.0, 2.44]               # TagID 7
 dict_wall_lm['lm8'] = [2.44, 3.05]              # TagID 5
-# Obstacle landmarks' center point (x, y)
-dict_obs_lm['lm1'] = [1.53, 1.34]              # TagID 4
-dict_obs_lm['lm2'] = [1.755, 1.505]            # TagID 6
-dict_obs_lm['lm3'] = [1.305, 1.505]            # TagID 2
-dict_obs_lm['lm4'] = [1.53, 1.67]              # TagID 3
+
 # RB5 Start Position (x, y)
 rb5_start = [0.61, 0.61]
 rb5_goal = [2.44, 2.44]
+
 # Map Configuration
+safety_Dist = 0.61                              # Safety distance between planned path and wall
+lane_Width = 0.61                               # Robot Size Diameter 0.2m
 cell_size = 0.1                                 # Size of the cell 0.1m x 0.1m
 rb5_clearance = 0.2                             # Robot Size Diameter 0.2m
 goal_tol = 1                                    # Goal Tolerance that considered waypoint is reached, 1 unit cell
@@ -49,8 +48,9 @@ verbose = True                                  # True/False - Visualize Path Pl
 Path Planner Settings
 ---------------------
 '''
-path_planner = 'A*'         # A* OR Voronoi
-# path_planner = 'Voronoi'    # A* OR Voronoi
+# path_planner = 'A*'         # A* OR Voronoi OR Coverage
+# path_planner = 'Voronoi'    # A* OR Voronoi OR Coverage
+path_planner = 'Coverage'     # A* OR Voronoi OR Coverage
 
 
 '''
@@ -101,15 +101,12 @@ def array_to_ground_transform(arr_pos):
     x, y = arr_pos
     return [y * cell_size, 3 - x * cell_size]
 
-# Process obstacles
-obs_lm1 = ground_to_array_transform(dict_obs_lm['lm1'])
-obs_lm2 = ground_to_array_transform(dict_obs_lm['lm2'])
-obs_lm3 = ground_to_array_transform(dict_obs_lm['lm3'])
-obs_lm4 = ground_to_array_transform(dict_obs_lm['lm4'])
-min_x = min(obs_lm1[0], obs_lm2[0], obs_lm3[0], obs_lm4[0])
-min_y = min(obs_lm1[1], obs_lm2[1], obs_lm3[1], obs_lm4[1])
-max_x = max(obs_lm1[0], obs_lm2[0], obs_lm3[0], obs_lm4[0])
-max_y = max(obs_lm1[1], obs_lm2[1], obs_lm3[1], obs_lm4[1])
+def grid_to_ground_transform(arr_pos):
+    '''
+    Transform grid frame to ground position.
+    '''
+    x, y = arr_pos
+    return [x * cell_size, (map.shape[0] - y - 1) * cell_size]
 
 def can_add_obs(arr_pos):
     '''
@@ -128,8 +125,6 @@ def add_obs(min_x, min_y, max_x, max_y):
             if can_add_obs(arr_pos = (x, y)):
                 map[x, y] = 1
                 
-# Add obstacle
-add_obs(min_x, min_y, max_x, max_y)
 
 def add_landmarks(obs):
     '''
@@ -137,9 +132,6 @@ def add_landmarks(obs):
     '''
     for i in obs:
         map[i[0], i[1]] = 5
-
-# Visualize the landmark location on the obstacles
-add_landmarks([obs_lm1, obs_lm2, obs_lm3, obs_lm4])
 
 # Add walls
 for i in range(int(ceil(rb5_clearance / cell_size))):
@@ -195,7 +187,7 @@ writer = csv.writer(fh)
 if __name__ == "__main__":
 
     # Initialize node
-    rospy.init_node("vSLAM_Path_Planning")
+    rospy.init_node("roomba_OS")
     # Intialize publisher
     pub_twist = rospy.Publisher("/twist", Twist, queue_size=1)
     
@@ -302,6 +294,75 @@ if __name__ == "__main__":
         # Save path as csv
         np.savetxt('/home/rosws/src/rb5_ros/waypoints/voronoi_waypoints.csv', np.array(waypoint), delimiter=',')
         
+    elif path_planner == 'Coverage':
+        
+        # Create coverage path planner object
+        coverage = Coverage(
+            map = map,                                         # 2D Map
+            cell_size = cell_size,                             # Cell Size
+            safety_Dist = safety_Dist,                         # Safety distance between planned path and wall
+            lane_Width = lane_Width,                           # Distance between lanes
+            verbose = verbose                                  # Visual Display
+        )
+        
+        # Plan path
+        coverage_path = coverage.plan_path()
+
+        # Show the path
+        if verbose:
+            map_disp = deepcopy(map)
+            for id, wp in enumerate(coverage.path):
+                x, y = wp
+                if id == 0:
+                    map_disp[y, x] = 3
+                    robot_pos = (x, y)
+                elif id < len(coverage.path):
+                    while (x - robot_pos[0]) > 0:
+                        x_pos = robot_pos[0] + 1
+                        robot_pos = (x_pos, robot_pos[1])
+                        map_disp[robot_pos[1], x_pos] = 2
+                    while (y - robot_pos[1]) < 0:
+                        y_pos = robot_pos[1] - 1
+                        robot_pos = (robot_pos[0], y_pos)
+                        map_disp[y_pos, robot_pos[0]] = 2
+                    while (x - robot_pos[0]) < 0:
+                        x_pos = robot_pos[0] - 1
+                        robot_pos = (x_pos, robot_pos[1]) 
+                        map_disp[robot_pos[1], x_pos] = 2
+                    if id == len(coverage.path)-1:
+                        map_disp[y, x] = 4
+
+            plt.imshow(map_disp)
+            plt.title('Path Generated by Coverage Path Planning Algorithm')
+            plt.ylabel('Height Pixel Coordinate')
+            plt.xlabel('Width Pixel Coordinate')
+            plt.show()
+
+        # Generate waypoints
+        coverage_waypoints = []
+        print(coverage_path)
+
+        while coverage_path:
+            x, y = coverage_path.pop(0)
+            coverage_waypoints.append(grid_to_ground_transform([x, y]))
+        print ('[MESSAGE] Printing waypoints generated by Coverage')
+        print (np.array(coverage_waypoints))
+        
+        # Define waypoints
+        waypoint = np.array(coverage_waypoints)
+        thetas = np.zeros((waypoint.shape[0],1))
+        for id in range(0, waypoint.shape[0]):
+            if id in list(range(0, waypoint.shape[0],4)):
+                thetas[id, 0] = 0.0
+            elif id in list(range(1, waypoint.shape[0],4)) or id in list(range(3, waypoint.shape[0],4)):
+                thetas[id, 0] = np.pi/2
+            elif id in list(range(2, waypoint.shape[0],4)):
+                thetas[id, 0] = np.pi
+        waypoint = np.hstack((waypoint, thetas))
+        
+        # Save path as csv
+        np.savetxt('/home/rosws/src/rb5_ros/waypoints/coverage_waypoints.csv', np.array(waypoint), delimiter=',')
+        
     else:
         
         # Default random waypoints
@@ -313,6 +374,7 @@ if __name__ == "__main__":
                              [0.0,1.0,np.pi],
                              [0.0,0.0,-np.pi/2]])
 
+    '''
     # init pid controller
     scale = 1.0
     pid = PIDcontroller(0.04*scale, 0.0005*scale, 0.00005*scale)
@@ -435,3 +497,4 @@ if __name__ == "__main__":
     pub_twist.publish(genTwistMsg(np.array([0.0,0.0,0.0])))
     # Close csv file
     fh.close()
+    '''
