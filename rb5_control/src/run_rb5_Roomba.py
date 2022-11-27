@@ -11,7 +11,7 @@ from geometry_msgs.msg import Twist
 from april_detection.msg import AprilTagDetectionArray
 from tf.transformations import euler_from_quaternion
 from rb5_visual_servo_control import PIDcontroller, genTwistMsg, coord
-from rb5_vSLAM import EKF_vSLAM
+from rb5_vSLAM_Pro import EKF_vSLAM
 from path_planner import A_Star, voronoi, Coverage
 
 
@@ -374,13 +374,13 @@ if __name__ == "__main__":
                              [0.0,1.0,np.pi],
                              [0.0,0.0,-np.pi/2]])
 
-    '''
+    
     # init pid controller
     scale = 1.0
     pid = PIDcontroller(0.04*scale, 0.0005*scale, 0.00005*scale)
     
     # init ekf vslam
-    ekf_vSLAM = EKF_vSLAM(var_System_noise=[0.1, 0.01], var_Sensor_noise=[0.01, 0.01])
+    ekf_vSLAM = EKF_vSLAM(var_System_noise=[0.1, 0.01], var_Sensor_noise=[0.01, 0.01], sensor_Error=0.43)
 
     # init current state
     current_state = np.array([0.61,0.61,0.0])
@@ -497,4 +497,4 @@ if __name__ == "__main__":
     pub_twist.publish(genTwistMsg(np.array([0.0,0.0,0.0])))
     # Close csv file
     fh.close()
-    '''
+    
