@@ -274,11 +274,16 @@ if __name__ == "__main__":
     #                      [2.4,2.4,0.0]])
 
     # Generated Voronoi Path
-    waypoint = np.array([[0.61,0.61,0.0],
-                         [2.20,0.60,0.0],
-                         [2.40,0.80,0.0],
-                         [2.40,2.40,np.pi/2]
-                         ])
+    # waypoint = np.array([[0.61,0.61,0.0],
+    #                      [2.20,0.60,0.0],
+    #                      [2.40,0.80,0.0],
+    #                      [2.40,2.40,np.pi/2]
+    #                      ])
+
+    waypoint = np.array([[0.0,0.0,0.0],
+                         [0.5,0.0,np.pi/2],
+                         [0.5,1.0,np.pi/2],
+                         [0.0,0.0,0.0]])
 
     
 
@@ -290,7 +295,7 @@ if __name__ == "__main__":
     
     # init ekf vslam
     # ekf_vSLAM = EKF_vSLAM(var_System_noise=[1e-6, 0.3], var_Sensor_noise=[1e-6, 3.05e-8])
-    ekf_vSLAM = EKF_vSLAM(var_System_noise=[0.1, 0.01], var_Sensor_noise=[0.01, 0.01])
+    ekf_vSLAM = EKF_vSLAM(var_System_noise=[0.1, 0.01], var_Sensor_noise=[0.01, 0.01], sensor_Error=0.43)
     #ekf_vSLAM = EKF_vSLAM(var_System_noise=[1, 1], var_Sensor_noise=[1, 1])
 
     # init current state
