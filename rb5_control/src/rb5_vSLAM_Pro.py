@@ -189,14 +189,12 @@ class EKF_vSLAM:
             
             # Calculate H, which is the measurement prediction p(z |s ) ie a prediction of where features 
             # in the world are in the sensory frame [2, 3+2M]
-            # H = J @ Fxj 
             H = multi_dot([J, Fxj])
 
             # Define the sensor noise matrix Rt [2, 2]
             Rt = np.diag(np.array([var_r, var_phi]))
 
             # Calculate the Kalman Gain, K [3+2M, 2]
-            # K = self.cov @ H.T @ np.linalg.inv(H @ self.cov @ H.T + Rt)
             K = multi_dot([self.cov, H.T, np.linalg.inv(multi_dot([H, self.cov, H.T]) + Rt)])
         
             # Define sensor measurement, z
@@ -274,17 +272,20 @@ if __name__ == "__main__":
     #                      [2.4,2.4,0.0]])
 
     # Generated Voronoi Path
-    # waypoint = np.array([[0.61,0.61,0.0],
-    #                      [2.20,0.60,0.0],
-    #                      [2.40,0.80,0.0],
-    #                      [2.40,2.40,np.pi/2]
-    #                      ])
+    waypoint = np.array([[0.61,0.61,0.0],
+                         [2.20,0.60,0.0],
+                         [2.40,0.80,0.0],
+                         [2.40,2.40,np.pi/2]
+                         ])
 
-    waypoint = np.array([[0.0,0.0,0.0],
-                         [0.5,0.0,np.pi/2],
-                         [0.5,1.0,np.pi/2],
-                         [0.0,0.0,0.0]])
-
+    # waypoint = np.array([[0.6,0.6,0.0],
+    #                      [2.4,0.6,0.0],
+    #                      [2.4,1.2, np.pi],
+    #                      [0.6,1.2,np.pi],
+    #                      [0.6,1.8,0.0],
+    #                      [2.4,1.8,0.0],
+    #                      [2.4,2.4,np.pi],
+    #                      [0.6,2.4,np.pi]])
     
 
     # init pid controller

@@ -22,18 +22,22 @@ Map Parameters
 # Define Landmarks/Obstacles' Center Points
 dict_wall_lm, dict_obs_lm = {}, {}              # Dictionaries that stores Walls' landmarks, Obstacle landmarks, respectively
 # Wall's landmarks' center point (x, y)
-dict_wall_lm['lm1'] = [3.05, 2.44]              # TagID 4
-dict_wall_lm['lm2'] = [0.61, 3.05]              # TagID 6
-dict_wall_lm['lm3'] = [2.44, 0.0]               # TagID 2
-dict_wall_lm['lm4'] = [3.05, 0.61]              # TagID 3
+dict_wall_lm['lm1'] = [3.05, 2.44]              # TagID 1
+dict_wall_lm['lm2'] = [0.61, 3.05]              # TagID 1
+dict_wall_lm['lm3'] = [2.44, 0.0]               # TagID 1
+dict_wall_lm['lm4'] = [3.05, 0.61]              # TagID 1
 dict_wall_lm['lm5'] = [0.61, 0.0]               # TagID 1 
-dict_wall_lm['lm6'] = [0.0, 0.61]               # TagID 0
-dict_wall_lm['lm7'] = [0.0, 2.44]               # TagID 7
-dict_wall_lm['lm8'] = [2.44, 3.05]              # TagID 5
+dict_wall_lm['lm6'] = [0.0, 0.61]               # TagID 2
+dict_wall_lm['lm7'] = [0.0, 2.44]               # TagID 2
+dict_wall_lm['lm8'] = [2.44, 3.05]              # TagID 1
+dict_wall_lm['lm9'] = [3.05, 1.525]             # TagID 2
+dict_wall_lm['lm10'] = [1.525, 3.05]            # TagID 2
+dict_wall_lm['lm11'] = [1.525, 0.0]             # TagID 2
+dict_wall_lm['lm12'] = [0.0, 1.525]             # TagID 1
 
 # RB5 Start Position (x, y)
-rb5_start = [0.61, 0.61]
-rb5_goal = [2.44, 2.44]
+rb5_start = [0.61, 0.61]                        # For A* and Voronoi only
+rb5_goal = [2.44, 2.44]                         # For A* and Voronoi only
 
 # Map Configuration
 safety_Dist = 0.61                              # Safety distance between planned path and wall
@@ -358,7 +362,17 @@ if __name__ == "__main__":
                 thetas[id, 0] = np.pi/2
             elif id in list(range(2, waypoint.shape[0],4)):
                 thetas[id, 0] = np.pi
+    
         waypoint = np.hstack((waypoint, thetas))
+
+        # waypoint = np.array([[0.6,0.6,0.0],
+        #                  [2.4,0.6,0.0],
+        #                  [2.4,1.2, -np.pi],
+        #                  [0.6,1.2,-np.pi],
+        #                  [0.6,1.8,0.0],
+        #                  [2.4,1.8,0.0],
+        #                  [2.4,2.4,-np.pi],
+        #                  [0.6,2.4,-np.pi]])
         
         # Save path as csv
         np.savetxt('/home/rosws/src/rb5_ros/waypoints/coverage_waypoints.csv', np.array(waypoint), delimiter=',')
@@ -380,7 +394,8 @@ if __name__ == "__main__":
     pid = PIDcontroller(0.04*scale, 0.0005*scale, 0.00005*scale)
     
     # init ekf vslam
-    ekf_vSLAM = EKF_vSLAM(var_System_noise=[0.1, 0.01], var_Sensor_noise=[0.01, 0.01], sensor_Error=0.43)
+    # ekf_vSLAM = EKF_vSLAM(var_System_noise=[0.1, 0.01], var_Sensor_noise=[0.01, 0.01], sensor_Error=0.43)
+    ekf_vSLAM = EKF_vSLAM(var_System_noise=[0.1, 0.01], var_Sensor_noise=[0.01, 0.01], sensor_Error=0.50)
 
     # init current state
     current_state = np.array([0.61,0.61,0.0])
