@@ -259,6 +259,82 @@ class voronoi():
         # Path planner failed to find a path
         if count == self.max_iters: 
             print("[MESSAGE] Voronois Path Planner Failed to Find a Path.")
+            
+class Coverage():
+    '''
+    Basic Full Coverage Path Planner 
+    '''
+    def __init__(self, map, cell_size, safety_Dist=0.61, lane_Width=0.61, verbose=False):
+        '''
+        Initialize parameters
+        '''
+        self.map = map                                          # 2D Map
+        self.cell_size = cell_size                              # cell size
+        self.safety_Dist = int(safety_Dist/cell_size)           # Safety distance between planned path and wall
+        self.lane_Width = int(lane_Width/cell_size)             # Distance between lanes
+        self.verbose = verbose                                  # Visual Display
+        
+    def plan_path(self):
+        '''
+        Plan basic full coverage path
+        '''
+        # Initialize path
+        path = []
+        
+        # Get the information about the map
+        map_Height, map_Width = self.map.shape
+
+        # Initialize robot current position
+        curr_pos = (self.safety_Dist, map_Height - self.safety_Dist -1)
+        
+        # While height map not reach
+        while curr_pos[1] >= self.safety_Dist:
+            
+            # Add to path list
+            path.append(curr_pos)
+            
+            # Extract current position
+            x, y = curr_pos
+
+            # If the current position is on the left side of the map
+            if x <= ceil(self.safety_Dist):
+                
+                # If it is not a starting point
+                if len(path) > 1:
+                
+                    if path[-2][0] <= ceil(self.safety_Dist):
+                        
+                        x = map_Width - self.safety_Dist - 1
+                        
+                    else:
+                        
+                        y = y - self.lane_Width
+                        
+                        
+                else:
+                    
+                    x = map_Width - self.safety_Dist - 1
+                    
+                    
+            elif x >= floor(map_Width - self.safety_Dist - 1):
+                
+                if path[-2][0] >= floor(map_Width - self.safety_Dist - 1):
+                    
+                    x = self.safety_Dist
+                    
+                else:
+                
+                    y = y - self.lane_Width
+                    
+            curr_pos = (x, y)
+        
+        self.path = path
+
+        return self.path
+        
+    
+        
+        
     
         
         

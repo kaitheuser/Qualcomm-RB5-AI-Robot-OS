@@ -195,7 +195,7 @@ writer = csv.writer(fh)
 if __name__ == "__main__":
 
     # Initialize node
-    rospy.init_node("vSLAM")
+    rospy.init_node("vSLAM_Path_Planning")
     # Intialize publisher
     pub_twist = rospy.Publisher("/twist", Twist, queue_size=1)
     
