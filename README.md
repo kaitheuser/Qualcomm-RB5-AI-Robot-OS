@@ -48,3 +48,20 @@ Qualcomm RB5 Omni-directional Robot Setup Guide: https://docs.google.com/documen
     ```roslaunch rb5_control open_loop.launch```
 
 [![Qualcomm Robotics RB5 on a mBot Mega Omnidirectional Mobile Robot](./images/open_loop.png)](https://youtu.be/cIFvSnWTjoo "Qualcomm Robotics RB5 on a mBot Mega Omnidirectional Mobile Robot")
+
+## II. How to Run Visual Closed-loop Control
+1. Open `rb5_visual_servo_control.py` script to set hyperparameters.
+    
+    a. Set `waypoint` in `Line 140`. The array format is [[x_0, y_0, theta_0],...,[x_n, y_n, theta_n]]  .
+
+    b. Set PID constants, i.e., `pid = PIDcontroller(P_const, I_const, D_const)` in `Line 147`.
+
+    c. Save the script.
+
+2. Open `april_detection_cam_main_new.launch` launch file in the `april_detection` package to set or add april tag pose in the map frame.
+
+3. Open terminal and run the `closed_loop.launch` launch file with the following command:
+
+    ```roslaunch rb5_control closed_loop.launch```
+
+[![Qualcomm Robotics RB5 Mobile Robot - Visual Servoing Closed-loop Control](./images/closed_loop.png)](https://youtu.be/Jc48e9ZFB6Y "Qualcomm Robotics RB5 Mobile Robot - Visual Servoing Closed-loop Control")
