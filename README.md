@@ -84,3 +84,82 @@ Qualcomm RB5 Omni-directional Robot Setup Guide: https://docs.google.com/documen
     ```roslaunch rb5_control rb5_vSLAM.launch```
 
 [![Qualcomm RB5 Omnidirectional Robot - Real-time EKF Visual SLAM (Multiple Squares Path)](./images/rb5_vSLAM.png)](https://youtu.be/aTLilUzDVxc "Qualcomm RB5 Omnidirectional Robot - Real-time EKF Visual SLAM (Multiple Squares Path)")
+
+## IV. How to Run Real-time Path Planner and Visual SLAM using EKF
+1. Open `rb5_vSLAM_Path_Planning.py` script to set hyperparameters.
+    
+    a. Set or add walls, `dict_wall_lm['landmark_ID'] = [x_center, y_center]` in map frame from `Line 25` to `Line 32`.
+
+    b. Set or obstacles, `dict_obs_lm['obstacle_ID'] = [x_center, y_center]` in map frame from `Line 34` to `Line 37`.
+
+    c. Set RB5 start position, `rb5_start = [x_start, y_start]` in map frame in `Line 39`.
+
+    d. Set RB5 goal position, `rb5_start = [x_goal, y_goal]` in map frame in `Line 40`.
+
+    e. Set map's cell size, `cell_size` in `Line 42`.
+
+    f. Set configuration space, `rb5_clearance` in `Line 43`.
+
+    g. Set waypoint radius, `goal_tol` in `Line 44`.
+
+    h. Set path planner visualization, `verbose` in `Line 45`.
+
+    i. Select a path planner algorithm, `path_planner` in `Line 52`.
+
+    j. Set PID constants, i.e., `pid = PIDcontroller(P_const, I_const, D_const)` in `Line 318`.
+
+    k. Set motion and sensor noise, `ekf_vSLAM = EKF_vSLAM(var_System_noise=[variance_linear_motion, variance_rotation], var_Sensor_noise=[variance_range, variance_relative_angle])` in `Line 321`
+
+    l. Set RB5 initial pose, `current_state` in `Line 324`.
+
+    m. Save the script.
+
+2. Open `rb5_vSLAM.py` script to set hyperparameter.
+    
+    a. Set RB5 initial pose, `self.mu = np.array([[x_0, y_0, theta_0]]).T ` in map frame in `Line 35`.
+
+    b. Save the script.
+
+3. Open terminal and run the `rb5_Path_Planning_vSLAM.launch` launch file with the following command:
+
+    ```roslaunch rb5_control rb5_Path_Planning_vSLAM.launch```
+
+[![Qualcomm RB5 Omnidirectional Robot - Real-time Path Planning and EKF Visual SLAM (A*)](./images/rb5_path_planner.png)](https://youtu.be/LNtuhxP6C74 "Qualcomm RB5 Omnidirectional Robot - Real-time Path Planning and EKF Visual SLAM (A*)")
+
+
+## IV. How to Run Real-time Full Coverage Path Planner and Visual SLAM using EKF just Like iRobot Roomba Intelligent Vacuum Robot
+1. Open `run_rb5_Roomba.py` script to set hyperparameters.
+    
+    a. Set or add walls, `dict_wall_lm['landmark_ID'] = [x_center, y_center]` in map frame from `Line 25` to `Line 36`.
+
+    b. Set the safety distance between path and wall, `safety_Dist` in `Line 43`.
+
+    c. Set coverage width, `lane_Width` in `Line 44`.
+
+    d. Set map's cell size, `cell_size` in `Line 45`.
+
+    e. Set configuration space, `rb5_clearance` in `Line 46`.
+
+    f. Set waypoint radius, `goal_tol` in `Line 47`.
+
+    g. Set path planner visualization, `verbose` in `Line 48`.
+
+    h. Set PID constants, i.e., `pid = PIDcontroller(P_const, I_const, D_const)` in `Line 394`.
+
+    i. Set motion and sensor noise, `ekf_vSLAM = EKF_vSLAM(var_System_noise=[variance_linear_motion, variance_rotation], var_Sensor_noise=[variance_range, variance_relative_angle])` in `Line 398`
+
+    j. Set RB5 initial pose, `current_state` in `Line 401`.
+
+    k. Save the script.
+
+2. Open `rb5_vSLAM_Pro.py` script to set hyperparameter.
+    
+    a. Set RB5 initial pose, `self.mu = np.array([[x_0, y_0, theta_0]]).T ` in map frame in `Line 38`.
+
+    b. Save the script.
+
+3. Open terminal and run the `roomba_OS.launch` launch file with the following command:
+
+    ```roslaunch rb5_control roomba_OS.launch```
+
+[![Qualcomm RB5 Omnidirectional Robot - Roomba-like Robotics Systems with Real-time Full Coverage Path](./images/rb5_roomba.png)](https://youtu.be/CA4QbiJDwBw "Qualcomm RB5 Omnidirectional Robot - Roomba-like Robotics Systems with Real-time Full Coverage Path")
