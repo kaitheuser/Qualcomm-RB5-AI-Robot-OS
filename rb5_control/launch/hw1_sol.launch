@@ -1,3 +1,0 @@
-<launch>
-  <node pkg="rb5_control" type="pid_controller.py" name="hw1_sol_node" output="screen"/>
-</launch>

@@ -1,0 +1,5 @@
+<launch>
+  <include file="$(find rb5_control)/launch/mbot_bringup.launch" />
+  <include file="$(find april_detection)/launch/april_detection_cam_main.launch" />
+  <node pkg="rb5_control" type="rb5_visual_servo_control.py" name="closed_loop_node" output="screen" /> 
+</launch>
