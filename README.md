@@ -50,6 +50,10 @@ Qualcomm RB5 Omni-directional Robot Setup Guide: https://docs.google.com/documen
 ### **Qualcomm Robotics RB5 on a mBot Mega Omnidirectional Mobile Robot with an Open-loop Contol Demonstration Video**
 [![Qualcomm Robotics RB5 on a mBot Mega Omnidirectional Mobile Robot](./images/open_loop.png)](https://youtu.be/cIFvSnWTjoo "Qualcomm Robotics RB5 on a mBot Mega Omnidirectional Mobile Robot")
 
+### **Qualcomm Robotics RB5 on a mBot Mega Omnidirectional Mobile Robot with an Open-loop Contol Documentation:**
+https://docs.google.com/document/d/1j0bvsQpkUnRtFL_txo2a5OAL8Drjo_yICGo-vhNzl4g/edit?usp=sharing
+
+
 ## How to Run Visual Closed-loop Control
 1. Open `rb5_visual_servo_control.py` script to set hyperparameters.
     
@@ -67,6 +71,9 @@ Qualcomm RB5 Omni-directional Robot Setup Guide: https://docs.google.com/documen
 
 ### **Qualcomm Robotics RB5 Mobile Robot - Visual Servoing Closed-loop Control Demonstration Video**
 [![Qualcomm Robotics RB5 Mobile Robot - Visual Servoing Closed-loop Control](./images/closed_loop.png)](https://youtu.be/Jc48e9ZFB6Y "Qualcomm Robotics RB5 Mobile Robot - Visual Servoing Closed-loop Control")
+
+### **Qualcomm Robotics RB5 Mobile Robot - Visual Servoing Closed-loop Control Documentation:**
+https://docs.google.com/document/d/1xDAN0k04h2-QEGly4g5c5ps-2igEYwS0XQXxzFvp7PM/edit?usp=sharing
 
 ## How to Run Real-time Visual SLAM using EKF
 1. Open `rb5_vSLAM.py` script to set hyperparameters.
@@ -87,6 +94,9 @@ Qualcomm RB5 Omni-directional Robot Setup Guide: https://docs.google.com/documen
 
 ### **Qualcomm RB5 Omnidirectional Robot - Real-time EKF Visual SLAM (Multiple Squares Path) Demonstration Video**
 [![Qualcomm RB5 Omnidirectional Robot - Real-time EKF Visual SLAM (Multiple Squares Path)](./images/rb5_vSLAM.png)](https://youtu.be/aTLilUzDVxc "Qualcomm RB5 Omnidirectional Robot - Real-time EKF Visual SLAM (Multiple Squares Path)")
+
+### **Qualcomm RB5 Omnidirectional Robot - Real-time EKF Visual SLAM Documentation:**
+https://docs.google.com/document/d/1Q7iz5TkjJ18jbnqUABvTmdX5LaTh4DISK4mopFVQkxc/edit?usp=sharing
 
 ## How to Run Real-time Path Planner and Visual SLAM using EKF
 1. Open `rb5_vSLAM_Path_Planning.py` script to set hyperparameters.
@@ -136,6 +146,9 @@ Qualcomm RB5 Omni-directional Robot Setup Guide: https://docs.google.com/documen
 ### **Generated Voronoi Path in an Occupancy Grip Map**
 <img src="./telemetry_data/visualization_results/Voronoi_Result.png" width="600">
 
+### **Qualcomm RB5 Omnidirectional Robot - Real-time Path Planning and EKF Visual SLAM Documentation:**
+https://docs.google.com/document/d/1u4ua6Y6qlkR2MK0Chkaad1QUZFfIlbpQogyfUjHbIJQ/edit?usp=sharing
+
 ## How to Run Real-time Full Coverage Path Planner and Visual SLAM using EKF just Like iRobot Roomba Intelligent Vacuum Robot
 1. Open `run_rb5_Roomba.py` script to set hyperparameters.
     
@@ -179,3 +192,6 @@ Qualcomm RB5 Omni-directional Robot Setup Guide: https://docs.google.com/documen
 
 ### **Full Coverage Path Planning Performance (97.04% Map Coverage)**
 <img src="./telemetry_data/visualization_results/roomba_coverage_005.png" width="600">
+
+### **Qualcomm RB5 Omnidirectional Robot - Roomba-like Robotics Systems with Real-time Full Coverage Path Documentation:**
+https://docs.google.com/document/d/1WPYN-kjxllltDAoQzmoFR6iVyRRtZb05p5nQ772OQSQ/edit?usp=sharing
