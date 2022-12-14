@@ -146,6 +146,9 @@ https://docs.google.com/document/d/1Q7iz5TkjJ18jbnqUABvTmdX5LaTh4DISK4mopFVQkxc/
 ### **Generated Voronoi Path in an Occupancy Grip Map**
 <img src="./telemetry_data/visualization_results/Voronoi_Result.png" width="600">
 
+### **Generated Voronoi Graph**
+<img src="./telemetry_data/visualization_results/Voronoi_Graph.png" width="600">
+
 ### **Qualcomm RB5 Omnidirectional Robot - Real-time Path Planning and EKF Visual SLAM Documentation:**
 https://docs.google.com/document/d/1u4ua6Y6qlkR2MK0Chkaad1QUZFfIlbpQogyfUjHbIJQ/edit?usp=sharing
 
