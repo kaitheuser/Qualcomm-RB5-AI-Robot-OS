@@ -15,7 +15,7 @@ Qualcomm RB5 AI Robot OS is an robot operating system (ROS) stack for Qualcomm R
 
     c. Full Coverage Path Planning Algorithm
 
-<img src="./images/RB5.png" width="500" style="display: block; margin: 0 auto">
+<img src="./images/RB5.png" width="600" style="display: block; margin: 0 auto">
 
 # Requirements
 ## Hardware Requirements
@@ -34,3 +34,17 @@ Qualcomm RB5 AI Robot OS is an robot operating system (ROS) stack for Qualcomm R
 Qualcomm RB5 Omni-directional Robot Setup Guide: https://docs.google.com/document/d/1lE5VRxwFQ_RxpK8ENAjUE7F59_VxVeKrtLeinQnDE2k/edit?usp=sharing 
 
 # Instructions
+## I. How to Run Open-Loop Control
+1. Open `pid_controller.py` script to set hyperparameters.
+    
+    a. Set `waypoint` in `Line 102`. The array format is [[x_0, y_0, theta_0],...,[x_n, y_n, theta_n]]  .
+
+    b. Set PID constants, i.e., `pid = PIDcontroller(P_const, I_const, D_const)` in `Line 109`.
+
+    c. Save the script.
+
+2. Open terminal and run the `open_loop.launch` launch file with the following command:
+
+    ```roslaunch rb5_control open_loop.launch```
+
+[![Qualcomm Robotics RB5 on a mBot Mega Omnidirectional Mobile Robot](./images/open_loop.png)](https://youtu.be/cIFvSnWTjoo "Qualcomm Robotics RB5 on a mBot Mega Omnidirectional Mobile Robot")

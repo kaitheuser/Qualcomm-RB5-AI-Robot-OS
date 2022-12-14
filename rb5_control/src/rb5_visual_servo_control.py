@@ -143,7 +143,6 @@ if __name__ == "__main__":
                          [0.0,0.0,0.0]])
 
     # init pid controller
-    #pid = PIDcontroller(0.1, 0.02, 0.05)
     scale = 1.0
     pid = PIDcontroller(0.03*scale, 0.002*scale, 0.00001*scale)
 
@@ -174,10 +173,6 @@ if __name__ == "__main__":
             update_value = pid.update(current_state)
             # publish the twist
             pub_twist.publish(genTwistMsg(coord(update_value, current_state))) 
-            #print(coord(update_value, current_state))
-            # frames_dict = yaml.safe_load(tf_buffer.all_frames_as_yaml())
-            # print ('PRINTING ALL FRAMES')
-            # print (list(frames_dict.keys()))
             time.sleep(0.05)
             # update the current state
             current_state += update_value
