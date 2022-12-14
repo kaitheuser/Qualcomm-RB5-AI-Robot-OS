@@ -30,9 +30,8 @@ class EKF_vSLAM:
         self.var_System_noise = var_System_noise 
         self.var_Sensor_noise = var_Sensor_noise
         
-        # Initialization
-        # self.mu = np.zeros((3, 1))                  # Pose of the vehicle and positions of the landmark. (M - number of landmarks), (3 + 2M, 1)
-        self.mu = np.array([[0.61,0.61,0.0]]).T      # For generated path
+        # Initialization          
+        self.mu = np.array([[0.61,0.61,0.0]]).T     # Pose of the vehicle and positions of the landmark. (M - number of landmarks), (3 + 2M, 1)
         self.cov = np.zeros((3, 3))                 # Covariance matrix of the state model, which is the uncertainty in the pose/state estimate, (3 + 2M, 3 + 2M)
         self.observed = []                          # List that stores observed Apriltags' id
     
@@ -203,13 +202,13 @@ if __name__ == "__main__":
     rospy.Subscriber("/apriltag_detection_array", AprilTagDetectionArray, apriltag_callback)
 
     # Square Path
-    # waypoint = np.array([[0.0,0.0,0.0],
-    #                      [1.0,0.0,0.0],
-    #                      [1.0,0.0,np.pi/2],
-    #                      [1.0,1.0,np.pi/2],
-    #                      [1.0,1.0,np.pi],
-    #                       [0.0,1.0,np.pi],
-    #                       [0.0,0.0,-np.pi/2]])
+    waypoint = np.array([[0.0,0.0,0.0],
+                         [1.0,0.0,0.0],
+                         [1.0,0.0,np.pi/2],
+                         [1.0,1.0,np.pi/2],
+                         [1.0,1.0,np.pi],
+                          [0.0,1.0,np.pi],
+                          [0.0,0.0,-np.pi/2]])
     
     # Octagon Path
     # waypoint = np.array([[0.0, 0.0, 0.0],
@@ -232,21 +231,6 @@ if __name__ == "__main__":
     #                      [1.0,1.0,np.pi],
     #                      [0.0,1.0,np.pi],
     #                      [0.0,0.0,-np.pi/2]])
-    
-    # Generated A* Path
-    # waypoint = np.array([[0.61,0.61,0.0],
-    #                      [0.9,0.9,np.pi/2],
-    #                      [0.9,2.1,np.pi/2],
-    #                      [1.2,2.4,np.pi/2],
-    #                      [2.4,2.4,0.0]])
-
-    # Generated Voronoi Path
-    waypoint = np.array([[0.61,0.61,0.0],
-                         [2.20,0.60,0.0],
-                         [2.40,0.80,0.0],
-                         [2.40,2.40,np.pi/2]
-                         ])
-
     
 
     # init pid controller

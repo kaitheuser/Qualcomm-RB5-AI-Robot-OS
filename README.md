@@ -65,3 +65,22 @@ Qualcomm RB5 Omni-directional Robot Setup Guide: https://docs.google.com/documen
     ```roslaunch rb5_control closed_loop.launch```
 
 [![Qualcomm Robotics RB5 Mobile Robot - Visual Servoing Closed-loop Control](./images/closed_loop.png)](https://youtu.be/Jc48e9ZFB6Y "Qualcomm Robotics RB5 Mobile Robot - Visual Servoing Closed-loop Control")
+
+## III. How to Run Real-time Visual SLAM using EKF
+1. Open `rb5_vSLAM.py` script to set hyperparameters.
+    
+    a. Set RB5 initial pose, `self.mu = np.array([[x_0, y_0, theta_0]]).T ` in map frame in `Line 35`.
+    
+    b. Set `waypoint` in `Line 206`. The array format is [[x_0, y_0, theta_0],...,[x_n, y_n, theta_n]]  .
+
+    c. Set PID constants, i.e., `pid = PIDcontroller(P_const, I_const, D_const)` in `Line 241`.
+
+    d. Set motion and sensor noise, `ekf_vSLAM = EKF_vSLAM(var_System_noise=[variance_linear_motion, variance_rotation], var_Sensor_noise=[variance_range, variance_relative_angle])` in `Line 244`
+
+    e. Save the script.
+
+2. Open terminal and run the `rb5_vSLAM.launch` launch file with the following command:
+
+    ```roslaunch rb5_control rb5_vSLAM.launch```
+
+[![Qualcomm RB5 Omnidirectional Robot - Real-time EKF Visual SLAM (Multiple Squares Path)](./images/rb5_vSLAM.png)](https://youtu.be/aTLilUzDVxc "Qualcomm RB5 Omnidirectional Robot - Real-time EKF Visual SLAM (Multiple Squares Path)")
